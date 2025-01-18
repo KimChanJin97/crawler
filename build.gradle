@@ -1,0 +1,58 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.4.1'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.rouleatt'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+	// Spring Web
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	// Spring Data JPA
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	// Lombok
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	// MySQL
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	// JSON parse
+	implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.0'
+	// Model Mapper
+	implementation 'org.modelmapper:modelmapper:3.1.1'
+	// Brotli
+	implementation 'org.brotli:dec:0.1.2'
+	// Jsoup
+	implementation 'org.jsoup:jsoup:1.15.3'
+	// Hibernate Spatial
+	implementation 'org.hibernate:hibernate-spatial:6.2.9.Final'
+	// Java Topology Suite
+	implementation 'org.locationtech.jts:jts-core:1.18.2'
+	// Mail
+	implementation 'org.springframework.boot:spring-boot-starter-mail'
+
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
