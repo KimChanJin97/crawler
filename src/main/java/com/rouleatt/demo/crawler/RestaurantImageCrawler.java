@@ -172,9 +172,7 @@ public class RestaurantImageCrawler {
 
         String searchCoordValue = String.format("%f;%f", midX, midY);
         String boundaryValue = String.format("%f;%f;%f;%f", minX, minY, maxX, maxY);
-        System.out.println("searchCoordValue = " + searchCoordValue);
-        System.out.println("boundaryValue = " + boundaryValue);
-        System.out.println();
+
         return UriComponentsBuilder
                 .fromUriString(uri)
                 .queryParam(searchCoordKey, searchCoordValue)
