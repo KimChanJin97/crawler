@@ -14,6 +14,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URI;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Set;
@@ -51,7 +52,7 @@ public class RestaurantImageCrawler {
     @Value("${naver.restaurant.limit-value}")
     private String limitValue;
 
-    private static final Set<String> RESTAURANT_ID_SET = ConcurrentHashMap.newKeySet();
+    private static final Set<String> RESTAURANT_ID_SET = new LinkedHashSet();
 
     public void crawl(double minX, double minY, double maxX, double maxY) {
 
@@ -84,8 +85,8 @@ public class RestaurantImageCrawler {
                     JsonNode countNode = metaNode.path("count");
                     JsonNode listNode = resultNode.path("list");
 
-                    Set<RestaurantDto> restaurantDtoSet = new HashSet<>();
-                    Set<ImageDto> imageDtoSet = new HashSet<>();
+                    Set<RestaurantDto> restaurantDtoSet = new LinkedHashSet<>();
+                    Set<ImageDto> imageDtoSet = new LinkedHashSet<>();
 
                     // 조회된 음식점이 100개 미만이라면 CSV 기록
                     if (countNode.asInt() < 100) {
