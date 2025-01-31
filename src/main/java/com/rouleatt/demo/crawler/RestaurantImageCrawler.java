@@ -17,6 +17,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Set;
+import java.util.Stack;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -54,12 +55,12 @@ public class RestaurantImageCrawler {
 
     public void crawl(double minX, double minY, double maxX, double maxY) {
 
-        Queue<double[]> queue = new LinkedList<>();
-        queue.add(new double[]{minX, minY, maxX, maxY});
+        Stack<double[]> stack = new Stack<>();
+        stack.push(new double[]{minX, minY, maxX, maxY});
 
-        while (!queue.isEmpty()) {
+        while (!stack.isEmpty()) {
 
-            double[] bounds = queue.poll();
+            double[] bounds = stack.pop();
             double currentMinX = bounds[0];
             double currentMinY = bounds[1];
             double currentMaxX = bounds[2];
@@ -105,8 +106,7 @@ public class RestaurantImageCrawler {
                                     currentMinX,
                                     currentMinY,
                                     currentMaxX,
-                                    currentMaxY)
-                            );
+                                    currentMaxY));
                             // 이미지 DTO 저장
                             for (JsonNode imagesNode : itemNode.path("images")) {
                                 imageDtoSet.add(parseRestaurantImage(id, imagesNode));
@@ -120,10 +120,10 @@ public class RestaurantImageCrawler {
                         double midX = (currentMinX + currentMaxX) / 2;
                         double midY = (currentMinY + currentMaxY) / 2;
 
-                        queue.add(new double[]{currentMinX, midY, midX, currentMaxY}); // 1
-                        queue.add(new double[]{midX, midY, currentMaxX, currentMaxY}); // 2
-                        queue.add(new double[]{currentMinX, currentMinY, midX, midY}); // 3
-                        queue.add(new double[]{midX, currentMinY, currentMaxX, midY}); // 4
+                        stack.push(new double[]{midX, currentMinY, currentMaxX, midY}); // 4
+                        stack.push(new double[]{currentMinX, currentMinY, midX, midY}); // 3
+                        stack.push(new double[]{midX, midY, currentMaxX, currentMaxY}); // 2
+                        stack.push(new double[]{currentMinX, midY, midX, currentMaxY}); // 1
                     }
 
                     // CSV 저장 또는 범위 쪼개기가 성공적으로 이뤄졌음을 기록
@@ -227,12 +227,13 @@ public class RestaurantImageCrawler {
                         .append("name").append(DELIMITER)
                         .append("x").append(DELIMITER)
                         .append("x").append(DELIMITER)
-                        .append("yategory").append(DELIMITER)
+                        .append("category").append(DELIMITER)
                         .append("address").append(DELIMITER)
                         .append("road_address");
                 bw.write(sb.toString());
                 bw.newLine();
             }
+
             // CSV 칼럼 작성
             for (RestaurantDto restaurantDto : restaurantDtos) {
                 StringBuilder sb = new StringBuilder()
@@ -246,6 +247,7 @@ public class RestaurantImageCrawler {
                 bw.write(sb.toString());
                 bw.newLine();
             }
+            bw.newLine();
         } catch (IOException e) {
             e.printStackTrace();
         }
