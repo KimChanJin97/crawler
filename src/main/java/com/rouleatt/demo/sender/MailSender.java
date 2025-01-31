@@ -43,7 +43,7 @@ public class MailSender {
     private static final String READ_CSV_EXCEPTION_CONTENT = "CSV 파일을 읽는 데 실패했습니다";
 
     private static final String WRONG_BOUND_TITLE = "잘못된 좌표 예외";
-    private static final String WRONG_BOUND_CONTENT = "현재 좌표가 사방위 좌표 내 포함되지 않습니다";
+    private static final String WRONG_BOUND_CONTENT = "%f < %f < %f 이 아니거나 %f < %f < %f 가 아닙니다";
 
     private final JavaMailSender sender;
 
@@ -87,8 +87,8 @@ public class MailSender {
         send(to, READ_CSV_EXCEPTION_TITLE, READ_CSV_EXCEPTION_CONTENT);
     }
 
-    public void sendWrongBound() {
-        send(to, WRONG_BOUND_TITLE, WRONG_BOUND_CONTENT);
+    public void sendWrongBound(double minY, double currentY, double maxY, double minX, double currentX, double maxX) {
+        send(to, WRONG_BOUND_TITLE, String.format(WRONG_BOUND_CONTENT, minY, currentY, maxY, minX, currentX, maxX));
     }
 
     public void sendDone() {

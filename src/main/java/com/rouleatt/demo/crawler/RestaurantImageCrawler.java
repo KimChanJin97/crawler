@@ -51,7 +51,6 @@ public class RestaurantImageCrawler {
     private String limitValue;
 
     private static final Set<String> RESTAURANT_ID_SET = ConcurrentHashMap.newKeySet();
-    private static final Set<Set<RestaurantDto>> RESTAURANT_DTO_SET = ConcurrentHashMap.newKeySet();
 
     public void crawl(double minY, double minX, double maxY, double maxX) {
 
@@ -84,71 +83,60 @@ public class RestaurantImageCrawler {
                     JsonNode countNode = metaNode.path("count");
                     JsonNode listNode = resultNode.path("list");
 
-                    Set<String> idSet = new HashSet<>();
                     Set<RestaurantDto> restaurantDtoSet = new HashSet<>();
                     Set<ImageDto> imageDtoSet = new HashSet<>();
 
-                    for (JsonNode itemNode : listNode) {
-                        String id = itemNode.path("id").asText();
-
-                        // 이미 조회한 음식점이라면 패스
-                        if (RESTAURANT_ID_SET.contains(id)) {
-                            continue;
-                        }
-                        // 새로 조회한 음식점 id 저장
-                        idSet.add(id);
-
-                        // 음식점 DTO 저장 (좌표는 DTO 생성이 아닌 검증 목적)
-                        restaurantDtoSet.add(parseRestaurant(
-                                id,
-                                itemNode,
-                                currentMinY,
-                                currentMinX,
-                                currentMaxY,
-                                currentMaxX)
-                        );
-                        // 이미지 DTO 저장
-                        for (JsonNode imagesNode : itemNode.path("images")) {
-                            imageDtoSet.add(parseRestaurantImage(id, imagesNode));
-                        }
-                    }
-
                     // 조회된 음식점이 100개 미만이라면 CSV 기록
                     if (countNode.asInt() < 100) {
+                        for (JsonNode itemNode : listNode) {
+                            String id = itemNode.path("id").asText();
+
+                            // 이미 조회한 음식점이라면 패스
+                            if (RESTAURANT_ID_SET.contains(id)) {
+                                continue;
+                            }
+                            // 새로 조회한 음식점 id 저장
+                            RESTAURANT_ID_SET.add(id);
+
+                            // 음식점 DTO 저장 (좌표는 DTO 생성이 아닌 검증 목적)
+                            restaurantDtoSet.add(parseRestaurant(
+                                    id,
+                                    itemNode,
+                                    currentMinY,
+                                    currentMinX,
+                                    currentMaxY,
+                                    currentMaxX)
+                            );
+                            // 이미지 DTO 저장
+                            for (JsonNode imagesNode : itemNode.path("images")) {
+                                imageDtoSet.add(parseRestaurantImage(id, imagesNode));
+                            }
+                        }
                         saveRestaurantIntoCsv(restaurantDtoSet);
                         saveRestaurantImageIntoCsv(imageDtoSet);
-                        RESTAURANT_ID_SET.addAll(idSet);
                     }
                     // 조회된 음식점이 최대(100)이고 해당 음식점들을 조회한 적이 있다면 범위 쪼개지 않고 저장
-                    else if (countNode.asInt() >= 100 && RESTAURANT_DTO_SET.contains(restaurantDtoSet)) {
-                        saveRestaurantIntoCsv(restaurantDtoSet);
-                        saveRestaurantImageIntoCsv(imageDtoSet);
-                        RESTAURANT_ID_SET.addAll(idSet);
-                    }
-                    // 조회된 음식점이 최대(100)이고 해당 음식점들을 조회한 적이 없다면 범위 쪼개기
-                    else if (countNode.asInt() >= 100 && !RESTAURANT_DTO_SET.contains(restaurantDtoSet)) {
+                    else {
                         double midY = (currentMinY + currentMaxY) / 2;
                         double midX = (currentMinX + currentMaxX) / 2;
 
-                        queue.add(new double[]{currentMinY, midX, midY, currentMaxX, 1}); // 1
-                        queue.add(new double[]{midY, midX, currentMaxY, currentMaxX, 2}); // 2
-                        queue.add(new double[]{currentMinY, currentMinX, midY, midX, 3}); // 3
-                        queue.add(new double[]{midY, currentMinX, currentMaxY, midX, 4}); // 4
+                        queue.add(new double[]{currentMinY, midX, midY, currentMaxX}); // 1
+                        queue.add(new double[]{midY, midX, currentMaxY, currentMaxX}); // 2
+                        queue.add(new double[]{currentMinY, currentMinX, midY, midX}); // 3
+                        queue.add(new double[]{midY, currentMinX, currentMaxY, midX}); // 4
                     }
 
                     // CSV 저장 또는 범위 쪼개기가 성공적으로 이뤄졌음을 기록
                     success = true;
-                    // 해당 음식점을 조회한 적이 있음을 기록
-                    RESTAURANT_DTO_SET.add(restaurantDtoSet);
 
                 } catch (IOException e) {
                     retryCount++;
-                    mailSender.sendInterruptException(retryCount);
+                    mailSender.sendIOException(retryCount);
                     if (retryCount >= 10) {
-                        mailSender.sendInterruptExceptionMaxRetry();
+                        mailSender.sendIOExceptionMaxRetry();
                     }
                     try {
-                        Thread.sleep(3000 * retryCount); // 재시도 간격 증가
+                        Thread.sleep(10000 * retryCount); // 재시도 간격 증가
                     } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();
                         mailSender.sendInterruptExceptionSleepInterrupt();
@@ -160,7 +148,7 @@ public class RestaurantImageCrawler {
                         mailSender.sendBlockExceptionMaxRetry();
                     }
                     try {
-                        Thread.sleep(3000 * retryCount); // 재시도 간격 증가
+                        Thread.sleep(10000 * retryCount); // 재시도 간격 증가
                     } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();
                         mailSender.sendBlockExceptionSleepInterrupt();
@@ -215,7 +203,7 @@ public class RestaurantImageCrawler {
         double x = itemNode.path("y").asDouble();
 
         if (x < minX || maxX < x || y < minY || maxY < y) {
-            mailSender.sendWrongBound();
+            mailSender.sendWrongBound(minY, y, maxY, minX, x, maxX);
         }
 
         return RestaurantDto.builder()
