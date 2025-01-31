@@ -87,8 +87,8 @@ public class MailSender {
         send(to, READ_CSV_EXCEPTION_TITLE, READ_CSV_EXCEPTION_CONTENT);
     }
 
-    public void sendWrongBound(double minY, double currentY, double maxY, double minX, double currentX, double maxX) {
-        send(to, WRONG_BOUND_TITLE, String.format(WRONG_BOUND_CONTENT, minY, currentY, maxY, minX, currentX, maxX));
+    public void sendWrongBound(double minX, double currentX, double maxX, double minY, double currentY, double maxY) {
+        send(to, WRONG_BOUND_TITLE, String.format(WRONG_BOUND_CONTENT, minX, currentX, maxX, minY, currentY, maxY));
     }
 
     public void sendDone() {

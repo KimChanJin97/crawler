@@ -52,18 +52,18 @@ public class RestaurantImageCrawler {
 
     private static final Set<String> RESTAURANT_ID_SET = ConcurrentHashMap.newKeySet();
 
-    public void crawl(double minY, double minX, double maxY, double maxX) {
+    public void crawl(double minX, double minY, double maxX, double maxY) {
 
         Queue<double[]> queue = new LinkedList<>();
-        queue.add(new double[]{minY, minX, maxY, maxX});
+        queue.add(new double[]{minX, minY, maxX, maxY});
 
         while (!queue.isEmpty()) {
 
             double[] bounds = queue.poll();
-            double currentMinY = bounds[0];
-            double currentMinX = bounds[1];
-            double currentMaxY = bounds[2];
-            double currentMaxX = bounds[3];
+            double currentMinX = bounds[0];
+            double currentMinY = bounds[1];
+            double currentMaxX = bounds[2];
+            double currentMaxY = bounds[3];
 
             int retryCount = 0;
             boolean success = false;
@@ -71,7 +71,7 @@ public class RestaurantImageCrawler {
             while (retryCount < 10 && !success) {
                 try {
                     HttpHeaders headers = setHeaders();
-                    URI uri = setUri(currentMinY, currentMinX, currentMaxY, currentMaxX);
+                    URI uri = setUri(currentMinX, currentMinY, currentMaxX, currentMaxY);
                     RequestEntity<?> requestEntity = new RequestEntity<>(headers, GET, uri);
                     ResponseEntity<String> responseEntity = restTemplate.exchange(requestEntity, String.class);
 
@@ -102,10 +102,10 @@ public class RestaurantImageCrawler {
                             restaurantDtoSet.add(parseRestaurant(
                                     id,
                                     itemNode,
-                                    currentMinY,
                                     currentMinX,
-                                    currentMaxY,
-                                    currentMaxX)
+                                    currentMinY,
+                                    currentMaxX,
+                                    currentMaxY)
                             );
                             // 이미지 DTO 저장
                             for (JsonNode imagesNode : itemNode.path("images")) {
@@ -117,13 +117,13 @@ public class RestaurantImageCrawler {
                     }
                     // 조회된 음식점이 최대(100)이고 해당 음식점들을 조회한 적이 있다면 범위 쪼개지 않고 저장
                     else {
-                        double midY = (currentMinY + currentMaxY) / 2;
                         double midX = (currentMinX + currentMaxX) / 2;
+                        double midY = (currentMinY + currentMaxY) / 2;
 
-                        queue.add(new double[]{currentMinY, midX, midY, currentMaxX}); // 1
-                        queue.add(new double[]{midY, midX, currentMaxY, currentMaxX}); // 2
-                        queue.add(new double[]{currentMinY, currentMinX, midY, midX}); // 3
-                        queue.add(new double[]{midY, currentMinX, currentMaxY, midX}); // 4
+                        queue.add(new double[]{currentMinX, midY, midX, currentMaxY}); // 1
+                        queue.add(new double[]{midX, midY, currentMaxX, currentMaxY}); // 2
+                        queue.add(new double[]{currentMinX, currentMinY, midX, midY}); // 3
+                        queue.add(new double[]{midX, currentMinY, currentMaxX, midY}); // 4
                     }
 
                     // CSV 저장 또는 범위 쪼개기가 성공적으로 이뤄졌음을 기록
@@ -166,13 +166,15 @@ public class RestaurantImageCrawler {
         return headers;
     }
 
-    private URI setUri(double minY, double minX, double maxY, double maxX) {
-        double midY = (minY + maxY) / 2;
+    private URI setUri(double minX, double minY, double maxX, double maxY) {
         double midX = (minX + maxX) / 2;
+        double midY = (minY + maxY) / 2;
 
-        String searchCoordValue = String.format("%f;%f", midY, midX);
-        String boundaryValue = String.format("%f;%f;%f;%f", minY, minX, maxY, maxX);
-
+        String searchCoordValue = String.format("%f;%f", midX, midY);
+        String boundaryValue = String.format("%f;%f;%f;%f", minX, minY, maxX, maxY);
+        System.out.println("searchCoordValue = " + searchCoordValue);
+        System.out.println("boundaryValue = " + boundaryValue);
+        System.out.println();
         return UriComponentsBuilder
                 .fromUriString(uri)
                 .queryParam(searchCoordKey, searchCoordValue)
@@ -193,24 +195,24 @@ public class RestaurantImageCrawler {
     private RestaurantDto parseRestaurant(
             String id,
             JsonNode itemNode,
-            double minY,
             double minX,
-            double maxY,
-            double maxX
+            double minY,
+            double maxX,
+            double maxY
     ) {
         // 네이버는 좌표를 반대로 줌
-        double y = itemNode.path("x").asDouble();
-        double x = itemNode.path("y").asDouble();
+        double x = itemNode.path("x").asDouble();
+        double y = itemNode.path("y").asDouble();
 
         if (x < minX || maxX < x || y < minY || maxY < y) {
-            mailSender.sendWrongBound(minY, y, maxY, minX, x, maxX);
+            mailSender.sendWrongBound(minX, x, maxX, minY, y, maxY);
         }
 
         return RestaurantDto.builder()
                 .id(id)
                 .name(itemNode.path("name").asText())
-                .y(itemNode.path("x").asText())
-                .x(itemNode.path("y").asText())
+                .x(itemNode.path("x").asText())
+                .y(itemNode.path("y").asText())
                 .category(itemNode.path("categoryName").asText())
                 .address(address(itemNode.path("address")))
                 .roadAddress(address(itemNode.path("roadAddress")))
@@ -225,9 +227,9 @@ public class RestaurantImageCrawler {
                 StringBuilder sb = new StringBuilder()
                         .append("id").append(DELIMITER)
                         .append("name").append(DELIMITER)
-                        .append("y").append(DELIMITER)
                         .append("x").append(DELIMITER)
-                        .append("category").append(DELIMITER)
+                        .append("x").append(DELIMITER)
+                        .append("yategory").append(DELIMITER)
                         .append("address").append(DELIMITER)
                         .append("road_address");
                 bw.write(sb.toString());
@@ -238,8 +240,8 @@ public class RestaurantImageCrawler {
                 StringBuilder sb = new StringBuilder()
                         .append(restaurantDto.id()).append(DELIMITER)
                         .append(restaurantDto.name()).append(DELIMITER)
-                        .append(restaurantDto.y()).append(DELIMITER)
                         .append(restaurantDto.x()).append(DELIMITER)
+                        .append(restaurantDto.y()).append(DELIMITER)
                         .append(restaurantDto.category()).append(DELIMITER)
                         .append(restaurantDto.address()).append(DELIMITER)
                         .append(restaurantDto.roadAddress());
