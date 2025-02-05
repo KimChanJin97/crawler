@@ -1,60 +1,77 @@
 package com.rouleatt.demo.crawler;
 
-import static com.rouleatt.demo.utils.CrawlerUtils.DELIMITER;
-import static org.springframework.http.HttpMethod.GET;
+import static com.rouleatt.demo.dto.ImageDto.parseAndInitImageDto;
+import static com.rouleatt.demo.dto.RestaurantDto.parseAndInitRestaurantDto;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rouleatt.demo.dto.Region;
 import com.rouleatt.demo.dto.ImageDto;
 import com.rouleatt.demo.dto.RestaurantDto;
-import com.rouleatt.demo.sender.MailSender;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
+import com.rouleatt.demo.utils.EnvLoader;
+import com.rouleatt.demo.writer.RestaurantImageWriter;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
 import java.net.URI;
+import java.net.URL;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.LinkedList;
-import java.util.Queue;
 import java.util.Set;
 import java.util.Stack;
-import java.util.concurrent.ConcurrentHashMap;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.RequestEntity;
-import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-@Component
-@RequiredArgsConstructor
 public class RestaurantImageCrawler {
 
-    private final RestTemplate restTemplate;
-    private final ObjectMapper objectMapper;
-    private final MailSender mailSender;
+    private final ObjectMapper mapper;
+    private final RestaurantImageWriter writer;
 
-    @Value("${naver.restaurant.uri}")
-    private String uri;
-    @Value("${naver.restaurant.search-coord-key}")
-    private String searchCoordKey;
-    @Value("${naver.restaurant.boundary-key}")
-    private String boundaryKey;
-    @Value("${naver.restaurant.referer-key}")
-    private String refererKey;
-    @Value("${naver.restaurant.referer-value}")
-    private String refererValue;
-    @Value("${naver.restaurant.limit-key}")
-    private String limitKey;
-    @Value("${naver.restaurant.limit-value}")
-    private String limitValue;
+    private final String RI_URI = EnvLoader.get("RI_URI");
+    private final String RI_SEARCH_COORD_KEY = EnvLoader.get("RI_SEARCH_COORD_KEY");
+    private final String RI_BOUNDARY_KEY = EnvLoader.get("RI_BOUNDARY_KEY");
+    private final String RI_REFERER_KEY = EnvLoader.get("RI_REFERER_KEY");
+    private final String RI_REFERER_VALUE = EnvLoader.get("RI_REFERER_VALUE");
+    private final String RI_LIMIT_KEY = EnvLoader.get("RI_LIMIT_KEY");
+    private final String RI_LIMIT_VALUE = EnvLoader.get("RI_LIMIT_VALUE");
 
-    private static final Set<String> RESTAURANT_ID_SET = new LinkedHashSet();
+    public RestaurantImageCrawler() {
+        this.mapper = new ObjectMapper();
+        this.writer = new RestaurantImageWriter();
+    }
 
-    public void crawl(double minX, double minY, double maxX, double maxY) {
+    public void parallelCrawl() {
+        Region[] regions = Region.values();
+        ExecutorService executor = Executors.newFixedThreadPool(regions.length);
+
+        for (Region region : regions) {
+            Set<String> idSet = new HashSet<>();
+            Set<Set<String>> idSetSet = new HashSet<>();
+
+            String engName = region.getEngName();
+            String korFullName = region.getKorFullName();
+            String korShortName = region.getKorShortName();
+            double minX = region.getMinX();
+            double minY = region.getMinY();
+            double maxX = region.getMaxX();
+            double maxY = region.getMaxY();
+
+            executor.execute(() -> crawl(engName, korFullName, korShortName, minX, minY, maxX, maxY, idSet, idSetSet));
+        }
+    }
+
+    private void crawl(
+            String engName,
+            String fullName,
+            String shortName,
+            double minX,
+            double minY,
+            double maxX,
+            double maxY,
+            Set<String> idSet,
+            Set<Set<String>> idSetSet
+    ) {
 
         Stack<double[]> stack = new Stack<>();
         stack.push(new double[]{minX, minY, maxX, maxY});
@@ -70,16 +87,14 @@ public class RestaurantImageCrawler {
             int retryCount = 0;
             boolean success = false;
 
-            while (retryCount < 10 && !success) {
+            while (retryCount < 60 && !success) {
                 try {
-                    HttpHeaders headers = setHeaders();
                     URI uri = setUri(currentMinX, currentMinY, currentMaxX, currentMaxY);
-                    RequestEntity<?> requestEntity = new RequestEntity<>(headers, GET, uri);
-                    ResponseEntity<String> responseEntity = restTemplate.exchange(requestEntity, String.class);
+                    String response = sendHttpRequest(uri);
 
-                    Thread.sleep(3000);
+                    Thread.sleep(1000);
 
-                    JsonNode rootNode = objectMapper.readTree(responseEntity.getBody());
+                    JsonNode rootNode = mapper.readTree(response);
                     JsonNode resultNode = rootNode.path("result");
                     JsonNode metaNode = resultNode.path("meta");
                     JsonNode countNode = metaNode.path("count");
@@ -88,36 +103,38 @@ public class RestaurantImageCrawler {
                     Set<RestaurantDto> restaurantDtoSet = new LinkedHashSet<>();
                     Set<ImageDto> imageDtoSet = new LinkedHashSet<>();
 
-                    // 조회된 음식점이 100개 미만이라면 CSV 기록
-                    if (countNode.asInt() < 100) {
-                        for (JsonNode itemNode : listNode) {
-                            String id = itemNode.path("id").asText();
+                    for (JsonNode itemNode : listNode) {
+                        String id = itemNode.path("id").asText();
+                        String address = address(itemNode.path("address"));
 
-                            // 이미 조회한 음식점이라면 패스
-                            if (RESTAURANT_ID_SET.contains(id)) {
-                                continue;
-                            }
+                        // 중복 크롤링이 아님 && 탐색하고자 하는 주소
+                        if (isNotDuplicated(idSet, id) && isTarget(address, fullName, shortName)) {
                             // 새로 조회한 음식점 id 저장
-                            RESTAURANT_ID_SET.add(id);
+                            idSet.add(id);
 
-                            // 음식점 DTO 저장 (좌표는 DTO 생성이 아닌 검증 목적)
-                            restaurantDtoSet.add(parseRestaurant(
-                                    id,
-                                    itemNode,
-                                    currentMinX,
-                                    currentMinY,
-                                    currentMaxX,
-                                    currentMaxY));
+                            // 음식점 DTO 저장
+                            restaurantDtoSet.add(parseAndInitRestaurantDto(id, itemNode));
                             // 이미지 DTO 저장
                             for (JsonNode imagesNode : itemNode.path("images")) {
-                                imageDtoSet.add(parseRestaurantImage(id, imagesNode));
+                                imageDtoSet.add(parseAndInitImageDto(id, imagesNode));
                             }
                         }
-                        saveRestaurantIntoCsv(restaurantDtoSet);
-                        saveRestaurantImageIntoCsv(imageDtoSet);
+                    }
+
+                    // 조회된 음식점이 100개 미만이라면 CSV 기록
+                    if (countNode.asInt() < 100) {
+                        writer.writerRestaurant(engName, restaurantDtoSet);
+                        writer.writeImage(engName, imageDtoSet);
+                        idSet.addAll(idSet);
                     }
                     // 조회된 음식점이 최대(100)이고 해당 음식점들을 조회한 적이 있다면 범위 쪼개지 않고 저장
-                    else {
+                    else if (countNode.asInt() >= 100 && idSetSet.contains(idSet)) {
+                        writer.writerRestaurant(engName, restaurantDtoSet);
+                        writer.writeImage(engName, imageDtoSet);
+                        idSet.addAll(idSet);
+                    }
+                    // 조회된 음식점이 최대(100)이고 해당 음식점들을 조회한 적이 없다면 범위 쪼개기
+                    else if (countNode.asInt() >= 100 && !idSetSet.contains(idSet)) {
                         double midX = (currentMinX + currentMaxX) / 2;
                         double midY = (currentMinY + currentMaxY) / 2;
 
@@ -129,58 +146,63 @@ public class RestaurantImageCrawler {
 
                     // CSV 저장 또는 범위 쪼개기가 성공적으로 이뤄졌음을 기록
                     success = true;
+                    // 해당 음식점을 조회한 적이 있음을 기록
+                    idSetSet.add(idSet);
 
                 } catch (IOException e) {
                     retryCount++;
-                    mailSender.sendIOException(retryCount);
-                    if (retryCount >= 10) {
-                        mailSender.sendIOExceptionMaxRetry();
+                    if (retryCount >= 60) {
+//                        log.error("[RI] IOException Max Retry");
                     }
                     try {
-                        Thread.sleep(10000 * retryCount); // 재시도 간격 증가
+                        Thread.sleep(10_000 * retryCount); // 재시도 간격 증가
                     } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();
-                        mailSender.sendInterruptExceptionSleepInterrupt();
                     }
                 } catch (Exception e) {
                     retryCount++;
-                    mailSender.sendBlockException(retryCount);
-                    if (retryCount >= 10) {
-                        mailSender.sendBlockExceptionMaxRetry();
+                    if (retryCount >= 60) {
+//                        log.error("[RI] Exception Max Retry");
                     }
                     try {
-                        Thread.sleep(10000 * retryCount); // 재시도 간격 증가
+                        Thread.sleep(10_000 * retryCount); // 재시도 간격 증가
                     } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();
-                        mailSender.sendBlockExceptionSleepInterrupt();
                     }
                 }
             }
         }
-
-        mailSender.sendDone();
-    }
-
-    private HttpHeaders setHeaders() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set(refererKey, refererValue);
-        return headers;
     }
 
     private URI setUri(double minX, double minY, double maxX, double maxY) {
         double midX = (minX + maxX) / 2;
         double midY = (minY + maxY) / 2;
 
-        String searchCoordValue = String.format("%f;%f", midX, midY);
-        String boundaryValue = String.format("%f;%f;%f;%f", minX, minY, maxX, maxY);
+        return URI.create(String.format("%s?%s=%f;%f&%s=%f;%f;%f;%f&%s=%s",
+                RI_URI,
+                RI_SEARCH_COORD_KEY, midX, midY,
+                RI_BOUNDARY_KEY, minX, minY, maxX, maxY,
+                RI_LIMIT_KEY, RI_LIMIT_VALUE));
+    }
 
-        return UriComponentsBuilder
-                .fromUriString(uri)
-                .queryParam(searchCoordKey, searchCoordValue)
-                .queryParam(boundaryKey, boundaryValue)
-                .queryParam(limitKey, limitValue)
-                .build()
-                .toUri();
+    private String sendHttpRequest(URI uri) throws IOException {
+        URL url = uri.toURL();
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setRequestProperty(RI_REFERER_KEY, RI_REFERER_VALUE);
+        conn.setConnectTimeout(5000);
+        conn.setReadTimeout(5000);
+
+        try (BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = in.readLine()) != null) {
+                response.append(line);
+            }
+            return response.toString();
+        } finally {
+            conn.disconnect();
+        }
     }
 
     private String address(JsonNode addressNode) {
@@ -191,101 +213,12 @@ public class RestaurantImageCrawler {
         return null;
     }
 
-    private RestaurantDto parseRestaurant(
-            String id,
-            JsonNode itemNode,
-            double minX,
-            double minY,
-            double maxX,
-            double maxY
-    ) {
-        // 네이버는 좌표를 반대로 줌
-        double x = itemNode.path("x").asDouble();
-        double y = itemNode.path("y").asDouble();
-
-        if (x < minX || maxX < x || y < minY || maxY < y) {
-            mailSender.sendWrongBound(minX, x, maxX, minY, y, maxY);
-        }
-
-        return RestaurantDto.builder()
-                .id(id)
-                .name(itemNode.path("name").asText())
-                .x(itemNode.path("x").asText())
-                .y(itemNode.path("y").asText())
-                .category(itemNode.path("categoryName").asText())
-                .address(address(itemNode.path("address")))
-                .roadAddress(address(itemNode.path("roadAddress")))
-                .build();
+    private boolean isNotDuplicated(Set<String> idSet, String id) {
+        return !idSet.contains(id);
     }
 
-    private void saveRestaurantIntoCsv(Set<RestaurantDto> restaurantDtos) {
-        File file = new File("restaurant.csv");
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(file, true))) {
-            if (file.length() == 0) {
-                // CSV 헤더 작성
-                StringBuilder sb = new StringBuilder()
-                        .append("id").append(DELIMITER)
-                        .append("name").append(DELIMITER)
-                        .append("x").append(DELIMITER)
-                        .append("x").append(DELIMITER)
-                        .append("category").append(DELIMITER)
-                        .append("address").append(DELIMITER)
-                        .append("road_address");
-                bw.write(sb.toString());
-                bw.newLine();
-            }
-
-            // CSV 칼럼 작성
-            for (RestaurantDto restaurantDto : restaurantDtos) {
-                StringBuilder sb = new StringBuilder()
-                        .append(restaurantDto.id()).append(DELIMITER)
-                        .append(restaurantDto.name()).append(DELIMITER)
-                        .append(restaurantDto.x()).append(DELIMITER)
-                        .append(restaurantDto.y()).append(DELIMITER)
-                        .append(restaurantDto.category()).append(DELIMITER)
-                        .append(restaurantDto.address()).append(DELIMITER)
-                        .append(restaurantDto.roadAddress());
-                bw.write(sb.toString());
-                bw.newLine();
-            }
-            bw.newLine();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private ImageDto parseRestaurantImage(
-            String id,
-            JsonNode imagesNode
-    ) {
-        return ImageDto.builder()
-                .restaurantId(id)
-                .url(imagesNode.asText())
-                .build();
-    }
-
-    private void saveRestaurantImageIntoCsv(Set<ImageDto> imageDtos) {
-        File file = new File("image.csv");
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(file, true))) {
-            if (file.length() == 0) {
-                // CSV 헤더 작성
-                StringBuilder sb = new StringBuilder()
-                        .append("restaurant_id").append(DELIMITER)
-                        .append("url");
-                bw.write(sb.toString());
-                bw.newLine();
-            }
-            // CSV 칼럼 작성
-            for (ImageDto imageDto : imageDtos) {
-                StringBuilder sb = new StringBuilder()
-                        .append(imageDto.restaurantId()).append(DELIMITER)
-                        .append(imageDto.url());
-                bw.write(sb.toString());
-                bw.newLine();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    private boolean isTarget(String address, String fullName, String shortName) {
+        return address != null && (address.contains(fullName) || address.contains(shortName));
     }
 }
 
