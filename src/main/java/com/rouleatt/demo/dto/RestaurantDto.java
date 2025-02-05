@@ -1,6 +1,6 @@
 package com.rouleatt.demo.dto;
 
-import java.util.Objects;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Builder;
 
 @Builder
@@ -13,26 +13,26 @@ public record RestaurantDto(
         String address,
         String roadAddress
 ) {
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        RestaurantDto that = (RestaurantDto) o;
-        return Objects.equals(id, that.id) &&
-                Objects.equals(name, that.name) &&
-                Objects.equals(x, that.x) &&
-                Objects.equals(y, that.y) &&
-                Objects.equals(category, that.category) &&
-                Objects.equals(address, that.address) &&
-                Objects.equals(roadAddress, that.roadAddress);
+    public static RestaurantDto parseAndInitRestaurantDto(
+            String id,
+            JsonNode itemNode
+    ) {
+        return RestaurantDto.builder()
+                .id(id)
+                .name(itemNode.path("name").asText())
+                .x(itemNode.path("x").asText())
+                .y(itemNode.path("y").asText())
+                .category(itemNode.path("categoryName").asText())
+                .address(address(itemNode.path("address")))
+                .roadAddress(address(itemNode.path("roadAddress")))
+                .build();
     }
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(id, name, x, y, category, address, roadAddress);
+    public static String address(JsonNode addressNode) {
+        String address = addressNode.asText();
+        if (address.length() > 0) {
+            return address;
+        }
+        return null;
     }
 }
