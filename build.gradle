@@ -1,7 +1,5 @@
 plugins {
 	id 'java'
-	id 'org.springframework.boot' version '3.4.1'
-	id 'io.spring.dependency-management' version '1.1.7'
 }
 
 group = 'com.rouleatt'
@@ -9,7 +7,7 @@ version = '0.0.1-SNAPSHOT'
 
 java {
 	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
+		languageVersion = JavaLanguageVersion.of(17)
 	}
 }
 
@@ -24,18 +22,13 @@ repositories {
 }
 
 dependencies {
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
-	// Spring Web
-	implementation 'org.springframework.boot:spring-boot-starter-web'
-	// Spring Data JPA
-	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	testImplementation platform('org.junit:junit-bom:5.9.1')
+	testImplementation 'org.junit.jupiter:junit-jupiter'
 	// Lombok
-	compileOnly 'org.projectlombok:lombok'
-	annotationProcessor 'org.projectlombok:lombok'
-	// MySQL
-	runtimeOnly 'com.mysql:mysql-connector-j'
+	implementation("org.projectlombok:lombok:1.18.30")
+	annotationProcessor("org.projectlombok:lombok:1.18.30")
+	testImplementation("org.projectlombok:lombok:1.18.30")
+	testAnnotationProcessor("org.projectlombok:lombok:1.18.30")
 	// JSON parse
 	implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.0'
 	// Model Mapper
@@ -44,13 +37,6 @@ dependencies {
 	implementation 'org.brotli:dec:0.1.2'
 	// Jsoup
 	implementation 'org.jsoup:jsoup:1.15.3'
-	// Hibernate Spatial
-	implementation 'org.hibernate:hibernate-spatial:6.2.9.Final'
-	// Java Topology Suite
-	implementation 'org.locationtech.jts:jts-core:1.18.2'
-	// Mail
-	implementation 'org.springframework.boot:spring-boot-starter-mail'
-
 }
 
 tasks.named('test') {
