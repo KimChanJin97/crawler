@@ -1,12 +1,13 @@
 package com.rouleatt.demo.crawler;
 
-import static com.rouleatt.demo.dto.MenuDto.parseAndInitMenuDtos;
-import static com.rouleatt.demo.dto.ReviewDto.parseAndInitReviewDtos;
 import static com.rouleatt.demo.utils.CrawlerUtils.DELIMITER;
+import static com.rouleatt.demo.utils.CrawlerUtils.RESTAURANT_POSTFIX;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rouleatt.demo.dto.Region;
 import com.rouleatt.demo.dto.MenuDto;
+import com.rouleatt.demo.dto.Region;
 import com.rouleatt.demo.dto.ReviewDto;
 import com.rouleatt.demo.utils.EnvLoader;
 import com.rouleatt.demo.writer.MenuReviewWriter;
@@ -57,7 +58,9 @@ public class MenuReviewCrawler {
 
     private void crawl(String engName) {
 
-        try (BufferedReader br = new BufferedReader(new FileReader("restaurant.csv"))) {
+        String fileName = engName.concat(RESTAURANT_POSTFIX);
+
+        try (BufferedReader br = new BufferedReader(new FileReader(fileName))) {
             br.readLine(); // 헤더 제외
             String line;
 
@@ -118,6 +121,80 @@ public class MenuReviewCrawler {
         } catch (IOException e) {
 //            log.error("[MR] IOException");
         }
+    }
+
+    public static ArrayList<MenuDto> parseAndInitMenuDtos(ObjectMapper objectMapper, String restaurantId,
+                                                          Matcher menuMatcher) {
+        ArrayList<MenuDto> menuDtos = new ArrayList<>();
+
+        try {
+            while (menuMatcher.find()) {
+                String node = menuMatcher.group().split(":", 3)[2]; // {"k":"v"}
+                JsonNode menuNode = objectMapper.readTree(node);
+
+                MenuDto menuDto = MenuDto.of(
+                        restaurantId,
+                        menuNode.path("index").asInt(),
+                        menuNode.path("name").asText(),
+                        menuNode.path("recommend").asBoolean(),
+                        menuNode.path("price").asText(),
+                        description(menuNode.path("description")),
+                        image(menuNode.path("images")));
+
+                menuDtos.add(menuDto);
+            }
+        } catch (JsonProcessingException e) {
+            // 메뉴 존재하지 않다면 파싱 예외 무시
+        }
+        return menuDtos;
+    }
+
+    private static String description(JsonNode descriptionNode) {
+        String description = descriptionNode.asText();
+        if (description.length() > 0) {
+            return description;
+        }
+        return null;
+    }
+
+    private static String image(JsonNode imageNode) {
+        if (imageNode.get(0) == null) {
+            return null;
+        }
+        return imageNode.get(0).asText();
+    }
+
+    public static ArrayList<ReviewDto> parseAndInitReviewDtos(
+            ObjectMapper objectMapper,
+            String restaurantId,
+            Matcher reviewMatcher
+    ) {
+
+        ArrayList<ReviewDto> reviewDtos = new ArrayList<>();
+
+        try {
+            while (reviewMatcher.find()) {
+                String node = reviewMatcher.group().split(":", 3)[2]; // {"k":"v"}
+                JsonNode reviewNode = objectMapper.readTree(node);
+
+                ReviewDto reviewDto = ReviewDto.of(
+                        restaurantId,
+                        reviewNode.path("name").asText(),
+                        reviewNode.path("typeName").asText(),
+                        reviewNode.path("url").asText(),
+                        reviewNode.path("thumbnailUrl").asText(),
+                        reviewNode.path("title").asText(),
+                        reviewNode.path("rank").asLong(),
+                        reviewNode.path("contents").asText(),
+                        reviewNode.path("createdString").asText()
+                );
+
+                reviewDtos.add(reviewDto);
+            }
+        } catch (JsonProcessingException e) {
+            // 리뷰 존재하지 않다면 파싱 에러 무시
+        }
+        return reviewDtos;
     }
 
     private URI setUri(String restaurantId) {

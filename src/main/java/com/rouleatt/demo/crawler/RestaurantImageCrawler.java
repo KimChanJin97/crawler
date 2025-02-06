@@ -1,12 +1,9 @@
 package com.rouleatt.demo.crawler;
 
-import static com.rouleatt.demo.dto.ImageDto.parseAndInitImageDto;
-import static com.rouleatt.demo.dto.RestaurantDto.parseAndInitRestaurantDto;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rouleatt.demo.dto.Region;
 import com.rouleatt.demo.dto.ImageDto;
+import com.rouleatt.demo.dto.Region;
 import com.rouleatt.demo.dto.RestaurantDto;
 import com.rouleatt.demo.utils.EnvLoader;
 import com.rouleatt.demo.writer.RestaurantImageWriter;
@@ -113,10 +110,19 @@ public class RestaurantImageCrawler {
                             idSet.add(id);
 
                             // 음식점 DTO 저장
-                            restaurantDtoSet.add(parseAndInitRestaurantDto(id, itemNode));
+                            RestaurantDto restaurantDto = RestaurantDto.of(
+                                    id,
+                                    itemNode.path("name").asText(),
+                                    itemNode.path("x").asText(),
+                                    itemNode.path("y").asText(),
+                                    itemNode.path("categoryName").asText(),
+                                    address(itemNode.path("address")),
+                                    address(itemNode.path("roadAddress")));
+                            restaurantDtoSet.add(restaurantDto);
+
                             // 이미지 DTO 저장
-                            for (JsonNode imagesNode : itemNode.path("images")) {
-                                imageDtoSet.add(parseAndInitImageDto(id, imagesNode));
+                            for (JsonNode imageNode : itemNode.path("images")) {
+                                imageDtoSet.add(ImageDto.of(id, imageNode.asText()));
                             }
                         }
                     }

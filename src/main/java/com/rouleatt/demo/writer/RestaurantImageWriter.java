@@ -11,7 +11,7 @@ import java.io.IOException;
 import java.util.Set;
 
 public class RestaurantImageWriter {
-    private static final String RESTAURANT_FILE_NAME_PREFIX = "";
+
     private static final String RESTAURANT_FILE_NAME_POSTFIX = "_restaurant.csv";
     private static final String IMAGE_FILE_NAME_POSTFIX = "_image.csv";
 
