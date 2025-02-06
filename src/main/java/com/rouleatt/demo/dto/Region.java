@@ -19,28 +19,28 @@ public enum Region {
     SEJONG("세종특별자치시","세종", 127.171931, 36.429861, 127.409350, 36.646516),
     JEJU("제주특별자치도", "제주", 126.075024, 33.111115, 126.978388, 33.568837);
 
-    private final String korFullName;
-    private final String korShortName;
+    private final String fullName;
+    private final String shortName;
     private final double minX;
     private final double minY;
     private final double maxX;
     private final double maxY;
 
-    Region(String korFullName, String korShortName, double minX, double minY, double maxX, double maxY) {
-        this.korFullName = korFullName;
-        this.korShortName = korShortName;
+    Region(String fullName, String shortName, double minX, double minY, double maxX, double maxY) {
+        this.fullName = fullName;
+        this.shortName = shortName;
         this.minX = minX;
         this.minY = minY;
         this.maxX = maxX;
         this.maxY = maxY;
     }
 
-    public String getKorFullName() {
-        return korFullName;
+    public String getFullName() {
+        return fullName;
     }
 
-    public String getKorShortName() {
-        return korShortName;
+    public String getShortName() {
+        return shortName;
     }
 
     public double getMinX() {

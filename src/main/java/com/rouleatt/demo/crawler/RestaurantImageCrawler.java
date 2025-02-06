@@ -45,14 +45,14 @@ public class RestaurantImageCrawler {
     public void crawlAll() {
         for (Region region : Region.values()) {
 
-            String korFullName = region.getKorFullName();
-            String korShortName = region.getKorShortName();
+            String fullName = region.getFullName();
+            String shortName = region.getShortName();
             double minX = region.getMinX();
             double minY = region.getMinY();
             double maxX = region.getMaxX();
             double maxY = region.getMaxY();
 
-            crawl(korFullName, korShortName, minX, minY, maxX, maxY);
+            crawl(fullName, shortName, minX, minY, maxX, maxY);
         }
     }
 
