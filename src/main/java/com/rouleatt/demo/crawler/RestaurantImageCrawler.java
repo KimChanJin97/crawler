@@ -17,8 +17,6 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.Stack;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -35,18 +33,19 @@ public class RestaurantImageCrawler {
     private final String RI_LIMIT_KEY = EnvLoader.get("RI_LIMIT_KEY");
     private final String RI_LIMIT_VALUE = EnvLoader.get("RI_LIMIT_VALUE");
 
+    private static final Set<String> idSet = new HashSet<>();
+    private static final Set<Set<String>> idSetSet = new HashSet<>();
+
+
     public RestaurantImageCrawler() {
         this.mapper = new ObjectMapper();
         this.writer = new RestaurantImageWriter();
     }
 
-    public void parallelCrawl() {
+    public void crawlAll() {
         Region[] regions = Region.values();
-        ExecutorService executor = Executors.newFixedThreadPool(regions.length);
 
         for (Region region : regions) {
-            Set<String> idSet = new HashSet<>();
-            Set<Set<String>> idSetSet = new HashSet<>();
 
             String engName = region.getEngName();
             String korFullName = region.getKorFullName();
@@ -56,7 +55,7 @@ public class RestaurantImageCrawler {
             double maxX = region.getMaxX();
             double maxY = region.getMaxY();
 
-            executor.execute(() -> crawl(engName, korFullName, korShortName, minX, minY, maxX, maxY, idSet, idSetSet));
+            crawl(engName, korFullName, korShortName, minX, minY, maxX, maxY);
         }
     }
 
@@ -67,9 +66,7 @@ public class RestaurantImageCrawler {
             double minX,
             double minY,
             double maxX,
-            double maxY,
-            Set<String> idSet,
-            Set<Set<String>> idSetSet
+            double maxY
     ) {
         Stack<double[]> stack = new Stack<>();
         stack.push(new double[]{minX, minY, maxX, maxY});
@@ -87,15 +84,8 @@ public class RestaurantImageCrawler {
 
             while (retryCount < 60 && !success) {
                 try {
-                    String response = null;
-
-                    /** try 찍기 */
-                    try {
-                        URI uri = setUri(currentMinX, currentMinY, currentMaxX, currentMaxY);
-                        response = sendHttpRequest(uri);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    URI uri = setUri(currentMinX, currentMinY, currentMaxX, currentMaxY);
+                    String response = sendHttpRequest(uri);
 
                     Thread.sleep(1000);
 

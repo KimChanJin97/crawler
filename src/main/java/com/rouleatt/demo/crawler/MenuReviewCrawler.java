@@ -49,12 +49,9 @@ public class MenuReviewCrawler {
         this.writer = new MenuReviewWriter();
     }
 
-    public void parallelCrawl() {
-        Region[] regions = Region.values();
-        ExecutorService executor = Executors.newFixedThreadPool(regions.length);
-
-        for (Region region : regions) {
-            executor.execute(() -> crawl(region.getEngName()));
+    public void crawlAll() {
+        for (Region region : Region.values()) {
+            crawl(region.getEngName());
         }
     }
 

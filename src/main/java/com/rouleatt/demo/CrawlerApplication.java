@@ -8,9 +8,9 @@ public class CrawlerApplication {
     public static void main(String[] args) {
 
         RestaurantImageCrawler restaurantImageCrawler = new RestaurantImageCrawler();
-        restaurantImageCrawler.parallelCrawl();
+        restaurantImageCrawler.crawlAll();
 
         MenuReviewCrawler menuReviewCrawler = new MenuReviewCrawler();
-        menuReviewCrawler.parallelCrawl();
+        menuReviewCrawler.crawlAll();
     }
 }
