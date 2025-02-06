@@ -25,10 +25,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import lombok.extern.slf4j.Slf4j;
 import org.brotli.dec.BrotliInputStream;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
+@Slf4j
 public class MenuReviewCrawler {
 
     private final ObjectMapper mapper;
@@ -98,7 +100,7 @@ public class MenuReviewCrawler {
                     } catch (IOException e) {
                         retryCount++;
                         if (retryCount >= 60) {
-//                            log.error("[MR] IOException Max Retry");
+                            log.error("[MR] IOException Max Retry");
                         }
                         try {
                             Thread.sleep(10_000 * retryCount); // 재시도 간격 증가
@@ -108,7 +110,7 @@ public class MenuReviewCrawler {
                     } catch (Exception e) {
                         retryCount++;
                         if (retryCount >= 60) {
-//                            log.error("[MR] Exception Max Retry");
+                            log.error("[MR] Exception Max Retry");
                         }
                         try {
                             Thread.sleep(10_000 * retryCount); // 재시도 간격 증가
@@ -119,7 +121,7 @@ public class MenuReviewCrawler {
                 }
             }
         } catch (IOException e) {
-//            log.error("[MR] IOException");
+            log.error("[MR] IOException");
         }
     }
 

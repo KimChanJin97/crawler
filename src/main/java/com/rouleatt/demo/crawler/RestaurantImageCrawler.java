@@ -19,7 +19,9 @@ import java.util.Set;
 import java.util.Stack;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class RestaurantImageCrawler {
 
     private final ObjectMapper mapper;
@@ -69,7 +71,6 @@ public class RestaurantImageCrawler {
             Set<String> idSet,
             Set<Set<String>> idSetSet
     ) {
-
         Stack<double[]> stack = new Stack<>();
         stack.push(new double[]{minX, minY, maxX, maxY});
 
@@ -86,8 +87,15 @@ public class RestaurantImageCrawler {
 
             while (retryCount < 60 && !success) {
                 try {
-                    URI uri = setUri(currentMinX, currentMinY, currentMaxX, currentMaxY);
-                    String response = sendHttpRequest(uri);
+                    String response = null;
+
+                    /** try 찍기 */
+                    try {
+                        URI uri = setUri(currentMinX, currentMinY, currentMaxX, currentMaxY);
+                        response = sendHttpRequest(uri);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
 
                     Thread.sleep(1000);
 
@@ -158,7 +166,7 @@ public class RestaurantImageCrawler {
                 } catch (IOException e) {
                     retryCount++;
                     if (retryCount >= 60) {
-//                        log.error("[RI] IOException Max Retry");
+                        log.error("[RI] Exception Max Retry");
                     }
                     try {
                         Thread.sleep(10_000 * retryCount); // 재시도 간격 증가
@@ -168,7 +176,7 @@ public class RestaurantImageCrawler {
                 } catch (Exception e) {
                     retryCount++;
                     if (retryCount >= 60) {
-//                        log.error("[RI] Exception Max Retry");
+                        log.error("[RI] Exception Max Retry");
                     }
                     try {
                         Thread.sleep(10_000 * retryCount); // 재시도 간격 증가
