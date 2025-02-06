@@ -1,6 +1,8 @@
 package com.rouleatt.demo.writer;
 
 import static com.rouleatt.demo.utils.CrawlerUtils.DELIMITER;
+import static com.rouleatt.demo.utils.CrawlerUtils.MENU_FILE_NAME;
+import static com.rouleatt.demo.utils.CrawlerUtils.REVIEW_FILE_NAME;
 
 import com.rouleatt.demo.dto.MenuDto;
 import com.rouleatt.demo.dto.ReviewDto;
@@ -12,12 +14,9 @@ import java.util.List;
 
 public class MenuReviewWriter {
 
-    private static final String MENU_FILE_NAME_POSTFIX = "_menu.csv";
-    private static final String REVIEW_FILE_NAME_POSTFIX = "_review.csv";
+    public void writeMenu(List<MenuDto> menuDtos) {
 
-    public void writeMenu(String engName, List<MenuDto> menuDtos) {
-
-        File file = new File(engName.concat(MENU_FILE_NAME_POSTFIX));
+        File file = new File(MENU_FILE_NAME);
 
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(file, true))) {
             if (file.length() == 0) {
@@ -51,9 +50,9 @@ public class MenuReviewWriter {
         }
     }
 
-    public void writeReview(String engName, List<ReviewDto> reviewDtos) {
+    public void writeReview(List<ReviewDto> reviewDtos) {
 
-        File file = new File(engName.concat(REVIEW_FILE_NAME_POSTFIX));
+        File file = new File(REVIEW_FILE_NAME);
 
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(file, true))) {
             if (file.length() == 0) {

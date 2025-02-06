@@ -1,13 +1,12 @@
 package com.rouleatt.demo.crawler;
 
 import static com.rouleatt.demo.utils.CrawlerUtils.DELIMITER;
-import static com.rouleatt.demo.utils.CrawlerUtils.RESTAURANT_POSTFIX;
+import static com.rouleatt.demo.utils.CrawlerUtils.RESTAURANT_FILE_NAME;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rouleatt.demo.dto.MenuDto;
-import com.rouleatt.demo.dto.Region;
 import com.rouleatt.demo.dto.ReviewDto;
 import com.rouleatt.demo.utils.EnvLoader;
 import com.rouleatt.demo.writer.MenuReviewWriter;
@@ -21,8 +20,6 @@ import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Scanner;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
@@ -49,17 +46,9 @@ public class MenuReviewCrawler {
         this.writer = new MenuReviewWriter();
     }
 
-    public void crawlAll() {
-        for (Region region : Region.values()) {
-            crawl(region.getEngName());
-        }
-    }
+    private void crawl() {
 
-    private void crawl(String engName) {
-
-        String fileName = engName.concat(RESTAURANT_POSTFIX);
-
-        try (BufferedReader br = new BufferedReader(new FileReader(fileName))) {
+        try (BufferedReader br = new BufferedReader(new FileReader(RESTAURANT_FILE_NAME))) {
             br.readLine(); // 헤더 제외
             String line;
 
@@ -70,7 +59,7 @@ public class MenuReviewCrawler {
                 int retryCount = 0;
                 boolean success = false;
 
-                while (retryCount < 10 && !success) {
+                while (retryCount < 60 && !success) {
                     try {
                         URI uri = setUri(restaurantId);
                         String response = sendHttpRequest(uri, restaurantId);
@@ -89,8 +78,8 @@ public class MenuReviewCrawler {
                         ArrayList<MenuDto> menuDtos = parseAndInitMenuDtos(mapper, restaurantId, menuMatcher);
                         ArrayList<ReviewDto> reviewDtos = parseAndInitReviewDtos(mapper, restaurantId, reviewMatcher);
 
-                        writer.writeMenu(engName, menuDtos);
-                        writer.writeReview(engName, reviewDtos);
+                        writer.writeMenu(menuDtos);
+                        writer.writeReview(reviewDtos);
 
                         success = true;
 

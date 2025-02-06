@@ -43,11 +43,8 @@ public class RestaurantImageCrawler {
     }
 
     public void crawlAll() {
-        Region[] regions = Region.values();
+        for (Region region : Region.values()) {
 
-        for (Region region : regions) {
-
-            String engName = region.getEngName();
             String korFullName = region.getKorFullName();
             String korShortName = region.getKorShortName();
             double minX = region.getMinX();
@@ -55,12 +52,11 @@ public class RestaurantImageCrawler {
             double maxX = region.getMaxX();
             double maxY = region.getMaxY();
 
-            crawl(engName, korFullName, korShortName, minX, minY, maxX, maxY);
+            crawl(korFullName, korShortName, minX, minY, maxX, maxY);
         }
     }
 
     private void crawl(
-            String engName,
             String fullName,
             String shortName,
             double minX,
@@ -127,14 +123,14 @@ public class RestaurantImageCrawler {
 
                     // 조회된 음식점이 100개 미만이라면 CSV 기록
                     if (countNode.asInt() < 100) {
-                        writer.writerRestaurant(engName, restaurantDtoSet);
-                        writer.writeImage(engName, imageDtoSet);
+                        writer.writerRestaurant(restaurantDtoSet);
+                        writer.writeImage(imageDtoSet);
                         idSet.addAll(idSet);
                     }
                     // 조회된 음식점이 최대(100)이고 해당 음식점들을 조회한 적이 있다면 범위 쪼개지 않고 저장
                     else if (countNode.asInt() >= 100 && idSetSet.contains(idSet)) {
-                        writer.writerRestaurant(engName, restaurantDtoSet);
-                        writer.writeImage(engName, imageDtoSet);
+                        writer.writerRestaurant(restaurantDtoSet);
+                        writer.writeImage(imageDtoSet);
                         idSet.addAll(idSet);
                     }
                     // 조회된 음식점이 최대(100)이고 해당 음식점들을 조회한 적이 없다면 범위 쪼개기
