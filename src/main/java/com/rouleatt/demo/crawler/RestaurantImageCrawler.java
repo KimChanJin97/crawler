@@ -13,18 +13,19 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.Stack;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class RestaurantImageCrawler {
 
+    private static final Set<String> ID_SET = ConcurrentHashMap.newKeySet();
+
     private final ObjectMapper mapper;
     private final RestaurantImageWriter writer;
-
     private final String RI_URI = EnvLoader.get("RI_URI");
     private final String RI_SEARCH_COORD_KEY = EnvLoader.get("RI_SEARCH_COORD_KEY");
     private final String RI_BOUNDARY_KEY = EnvLoader.get("RI_BOUNDARY_KEY");
@@ -32,10 +33,7 @@ public class RestaurantImageCrawler {
     private final String RI_REFERER_VALUE = EnvLoader.get("RI_REFERER_VALUE");
     private final String RI_LIMIT_KEY = EnvLoader.get("RI_LIMIT_KEY");
     private final String RI_LIMIT_VALUE = EnvLoader.get("RI_LIMIT_VALUE");
-
-    private static final Set<String> idSet = new HashSet<>();
-    private static final Set<Set<String>> idSetSet = new HashSet<>();
-
+    private final String RI_TIME_CODE = EnvLoader.get("RI_TIME_CODE");
 
     public RestaurantImageCrawler() {
         this.mapper = new ObjectMapper();
@@ -45,6 +43,7 @@ public class RestaurantImageCrawler {
     public void crawlAll() {
         for (Region region : Region.values()) {
 
+            String engName = region.getEngName();
             String fullName = region.getFullName();
             String shortName = region.getShortName();
             double minX = region.getMinX();
@@ -52,11 +51,12 @@ public class RestaurantImageCrawler {
             double maxX = region.getMaxX();
             double maxY = region.getMaxY();
 
-            crawl(fullName, shortName, minX, minY, maxX, maxY);
+            crawl(engName, fullName, shortName, minX, minY, maxX, maxY);
         }
     }
 
     private void crawl(
+            String engName,
             String fullName,
             String shortName,
             double minX,
@@ -94,47 +94,39 @@ public class RestaurantImageCrawler {
                     Set<RestaurantDto> restaurantDtoSet = new LinkedHashSet<>();
                     Set<ImageDto> imageDtoSet = new LinkedHashSet<>();
 
-                    for (JsonNode itemNode : listNode) {
-                        String id = itemNode.path("id").asText();
-                        String address = address(itemNode.path("address"));
+                    // 크롤링한 음식점이 100개 미만이라면
+                    if (countNode.asInt() < 100) {
 
-                        // 중복 크롤링이 아님 && 탐색하고자 하는 주소
-                        if (isNotDuplicated(idSet, id) && isTarget(address, fullName, shortName)) {
-                            // 새로 조회한 음식점 id 저장
-                            idSet.add(id);
+                        // 파싱 후 DTO 리스트 담기
+                        for (JsonNode itemNode : listNode) {
 
-                            // 음식점 DTO 저장
-                            RestaurantDto restaurantDto = RestaurantDto.of(
-                                    id,
-                                    itemNode.path("name").asText(),
-                                    itemNode.path("x").asText(),
-                                    itemNode.path("y").asText(),
-                                    itemNode.path("categoryName").asText(),
-                                    address(itemNode.path("address")),
-                                    address(itemNode.path("roadAddress")));
-                            restaurantDtoSet.add(restaurantDto);
+                            String id = itemNode.path("id").asText();
+                            String address = address(itemNode.path("address"));
 
-                            // 이미지 DTO 저장
-                            for (JsonNode imageNode : itemNode.path("images")) {
-                                imageDtoSet.add(ImageDto.of(id, imageNode.asText()));
+                            // 타겟팅한 행정구역이면서, 처음 크롤링하는 음식점 아이디라면
+                            if (isTarget(address, fullName, shortName) && ID_SET.add(id)) {
+                                // 음식점 DTO 생성
+                                RestaurantDto restaurantDto = RestaurantDto.of(
+                                        id,
+                                        itemNode.path("name").asText(),
+                                        itemNode.path("x").asText(),
+                                        itemNode.path("y").asText(),
+                                        itemNode.path("categoryName").asText(),
+                                        address(itemNode.path("address")),
+                                        address(itemNode.path("roadAddress")));
+                                restaurantDtoSet.add(restaurantDto);
+                                // 이미지 DTO 생성
+                                for (JsonNode imageNode : itemNode.path("images")) {
+                                    imageDtoSet.add(ImageDto.of(id, imageNode.asText()));
+                                }
                             }
                         }
+                        // 파일 쓰기
+                        writer.writeRestaurant(engName, restaurantDtoSet);
+                        writer.writeImage(engName, imageDtoSet);
                     }
-
-                    // 조회된 음식점이 100개 미만이라면 CSV 기록
-                    if (countNode.asInt() < 100) {
-                        writer.writerRestaurant(restaurantDtoSet);
-                        writer.writeImage(imageDtoSet);
-                        idSet.addAll(idSet);
-                    }
-                    // 조회된 음식점이 최대(100)이고 해당 음식점들을 조회한 적이 있다면 범위 쪼개지 않고 저장
-                    else if (countNode.asInt() >= 100 && idSetSet.contains(idSet)) {
-                        writer.writerRestaurant(restaurantDtoSet);
-                        writer.writeImage(imageDtoSet);
-                        idSet.addAll(idSet);
-                    }
-                    // 조회된 음식점이 최대(100)이고 해당 음식점들을 조회한 적이 없다면 범위 쪼개기
-                    else if (countNode.asInt() >= 100 && !idSetSet.contains(idSet)) {
+                    // 크롤링한 음식점이 100개 이상이라면 영역을 쪼개기 위해 스택 푸시
+                    else {
                         double midX = (currentMinX + currentMaxX) / 2;
                         double midY = (currentMinY + currentMaxY) / 2;
 
@@ -144,10 +136,8 @@ public class RestaurantImageCrawler {
                         stack.push(new double[]{currentMinX, midY, midX, currentMaxY}); // 1
                     }
 
-                    // CSV 저장 또는 범위 쪼개기가 성공적으로 이뤄졌음을 기록
+                    // 파일 저장 또는 영역 쪼개기가 성공적으로 이뤄졌음을 업데이트
                     success = true;
-                    // 해당 음식점을 조회한 적이 있음을 기록
-                    idSetSet.add(idSet);
 
                 } catch (IOException e) {
                     retryCount++;
@@ -178,11 +168,17 @@ public class RestaurantImageCrawler {
         double midX = (minX + maxX) / 2;
         double midY = (minY + maxY) / 2;
 
-        return URI.create(String.format("%s?%s=%f;%f&%s=%f;%f;%f;%f&%s=%s",
+        return URI.create(String.format(
+                "%s?%s=%f;%f&%s=%f;%f;%f;%f&%s=%s&%s=%s&%s=%s&%s=%s&%s=%s&%s=%s",
                 RI_URI,
                 RI_SEARCH_COORD_KEY, midX, midY,
                 RI_BOUNDARY_KEY, minX, minY, maxX, maxY,
-                RI_LIMIT_KEY, RI_LIMIT_VALUE));
+                RI_LIMIT_KEY, RI_LIMIT_VALUE,
+                RI_TIME_CODE, "MORNING",
+                RI_TIME_CODE, "LUNCH",
+                RI_TIME_CODE, "AFTERNOON",
+                RI_TIME_CODE, "EVENING",
+                RI_TIME_CODE, "NIGHT"));
     }
 
     private String sendHttpRequest(URI uri) throws IOException {
@@ -211,10 +207,6 @@ public class RestaurantImageCrawler {
             return address;
         }
         return null;
-    }
-
-    private boolean isNotDuplicated(Set<String> idSet, String id) {
-        return !idSet.contains(id);
     }
 
     private boolean isTarget(String address, String fullName, String shortName) {
