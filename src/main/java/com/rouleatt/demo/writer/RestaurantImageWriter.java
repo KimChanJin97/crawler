@@ -1,8 +1,8 @@
 package com.rouleatt.demo.writer;
 
 import static com.rouleatt.demo.utils.CrawlerUtils.DELIMITER;
-import static com.rouleatt.demo.utils.CrawlerUtils.IMAGE_FILE_NAME;
-import static com.rouleatt.demo.utils.CrawlerUtils.RESTAURANT_FILE_NAME;
+import static com.rouleatt.demo.utils.CrawlerUtils.IMAGE_FILE_POSTFIX;
+import static com.rouleatt.demo.utils.CrawlerUtils.RESTAURANT_FILE_POSTFIX;
 
 import com.rouleatt.demo.dto.ImageDto;
 import com.rouleatt.demo.dto.RestaurantDto;
@@ -14,9 +14,9 @@ import java.util.Set;
 
 public class RestaurantImageWriter {
 
-    public void writerRestaurant(Set<RestaurantDto> restaurantDtos) {
+    public void writeRestaurant(String engName, Set<RestaurantDto> restaurantDtos) {
 
-        File file = new File(RESTAURANT_FILE_NAME);
+        File file = new File(engName.concat(RESTAURANT_FILE_POSTFIX));
 
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(file, true))) {
             if (file.length() == 0) {
@@ -50,9 +50,9 @@ public class RestaurantImageWriter {
         }
     }
 
-    public void writeImage(Set<ImageDto> imageDtos) {
+    public void writeImage(String engName, Set<ImageDto> imageDtos) {
 
-        File file = new File(IMAGE_FILE_NAME);
+        File file = new File(engName.concat(IMAGE_FILE_POSTFIX));
 
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(file, true))) {
             if (file.length() == 0) {
