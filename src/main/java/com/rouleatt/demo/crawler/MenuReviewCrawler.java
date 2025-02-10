@@ -1,16 +1,18 @@
 package com.rouleatt.demo.crawler;
 
 import static com.rouleatt.demo.utils.CrawlerUtils.DELIMITER;
-import static com.rouleatt.demo.utils.CrawlerUtils.RESTAURANT_FILE_NAME;
+import static com.rouleatt.demo.utils.CrawlerUtils.RESTAURANT_FILE_POSTFIX;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rouleatt.demo.dto.MenuDto;
+import com.rouleatt.demo.dto.Region;
 import com.rouleatt.demo.dto.ReviewDto;
 import com.rouleatt.demo.utils.EnvLoader;
 import com.rouleatt.demo.writer.MenuReviewWriter;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,9 +48,17 @@ public class MenuReviewCrawler {
         this.writer = new MenuReviewWriter();
     }
 
-    private void crawl() {
+    public void crawlAll() {
+        for (Region region : Region.values()) {
+            crawl(region.getEngName());
+        }
+    }
 
-        try (BufferedReader br = new BufferedReader(new FileReader(RESTAURANT_FILE_NAME))) {
+    private void crawl(String engName) {
+
+        File file = new File(engName.concat(RESTAURANT_FILE_POSTFIX));
+
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
             br.readLine(); // 헤더 제외
             String line;
 
