@@ -1,38 +1,41 @@
 package com.rouleatt.demo.dto;
 
-import lombok.Builder;
-
 public record ReviewDto(
-        String restaurantId,
-        String reviewerName,
-        String typeName,
+        int reviewPk,
+        int restaurantPk,
+        String name,
+        String type,
         String url,
-        String thumbnailUrl,
         String title,
-        Long reviewIndex,
+        String reviewIdx,
         String content,
+        String profileUrl,
+        String authorName,
         String createdAt
 ) {
     public static ReviewDto of(
-            String restaurantId,
-            String reviewerName,
-            String typeName,
+            int reviewPk,
+            int restaurantPk,
+            String name,
+            String type,
             String url,
-            String thumbnailUrl,
             String title,
-            long reviewIndex,
+            String reviewIdx,
             String content,
+            String profileUrl,
+            String authorName,
             String createdAt) {
-
         return new ReviewDto(
-                restaurantId,
-                reviewerName,
-                typeName,
+                reviewPk,
+                restaurantPk,
+                name,
+                type,
                 url,
-                thumbnailUrl,
                 title,
-                reviewIndex,
+                reviewIdx,
                 content,
+                profileUrl,
+                authorName,
                 createdAt);
     }
 }

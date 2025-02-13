@@ -1,33 +1,23 @@
 package com.rouleatt.demo.dto;
 
-import com.fasterxml.jackson.databind.JsonNode;
-
 public record RestaurantDto(
-        String id,
+        int restaurantPk,
         String name,
-        String x,
-        String y,
+        double x,
+        double y,
         String category,
         String address,
         String roadAddress
 ) {
     public static RestaurantDto of(
-            String id,
+            int restaurantPk,
             String name,
-            String x,
-            String y,
+            double x,
+            double y,
             String category,
             String address,
             String roadAddress
     ) {
-        return new RestaurantDto(id, name, x, y, category,address,roadAddress);
-    }
-
-    public static String address(JsonNode addressNode) {
-        String address = addressNode.asText();
-        if (address.length() > 0) {
-            return address;
-        }
-        return null;
+        return new RestaurantDto(restaurantPk, name, x, y, category, address, roadAddress);
     }
 }

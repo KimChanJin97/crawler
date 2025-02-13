@@ -1,37 +1,30 @@
 package com.rouleatt.demo.dto;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.ArrayList;
-import java.util.regex.Matcher;
-
 public record MenuDto(
-        String restaurantId,
-        int menuIndex,
+        int menuPk,
+        int restaurantFk,
         String name,
-        boolean isRecommended,
         String price,
+        boolean isRecommended,
         String description,
-        String image
+        int menuIdx
 ) {
-
     public static MenuDto of(
-            String restaurantId,
-            int menuIndex,
+            int menuPk,
+            int restaurantFk,
             String name,
-            boolean isRecommended,
             String price,
+            boolean isRecommended,
             String description,
-            String image
+            int menuIdx
     ) {
         return new MenuDto(
-                restaurantId,
-                menuIndex,
+                menuPk,
+                restaurantFk,
                 name,
-                isRecommended,
                 price,
+                isRecommended,
                 description,
-                image);
+                menuIdx);
     }
 }
