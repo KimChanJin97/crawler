@@ -50,7 +50,6 @@ public class MenuReviewBatchCrawler {
     private static final String MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT = EnvLoader.get("MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT");
     private static final String MR_BIZ_HOUR_SECOND_DEPTH_KEY = EnvLoader.get("MR_BIZ_HOUR_SECOND_DEPTH_KEY");
     private static final String MR_BIZ_HOUR_THIRD_DEPTH_KEY = EnvLoader.get("MR_BIZ_HOUR_THIRD_DEPTH_KEY");
-    private static final Pattern MR_BIZ_HOUR_DAY_REGEX = Pattern.compile(EnvLoader.get("MR_BIZ_HOUR_DAY_REGEX"));
 
     public MenuReviewBatchCrawler() {
         this.jdbcBatchExecutor = new JdbcBatchExecutor();
