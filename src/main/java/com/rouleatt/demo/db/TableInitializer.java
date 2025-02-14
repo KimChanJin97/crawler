@@ -57,7 +57,7 @@ public class TableInitializer {
         String reviewTableSql = "CREATE TABLE IF NOT EXISTS review ("
                 + "id INT NOT NULL PRIMARY KEY, " // 배치를 위해 AUTO_INCREMENT 제거
                 + "restaurant_id INT NOT NULL, "
-                + "name VARCHAR(50), "
+                + "name VARCHAR(100), "
                 + "type VARCHAR(10), "
                 + "url TEXT, "
                 + "title TEXT, "
