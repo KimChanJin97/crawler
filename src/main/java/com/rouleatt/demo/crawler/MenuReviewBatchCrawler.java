@@ -118,7 +118,7 @@ public class MenuReviewBatchCrawler {
                                 checkNull(decode(value.path("contents").asText())),
                                 checkNull(decode(value.path("profileImageUrl").asText())),
                                 checkNull(decode(value.path("authorName").asText())),
-                                checkNull(value.path("createdString").asText())
+                                checkNull(value.path("date").asText())
                         );
 
                         for (JsonNode thumbnailUrl : value.path("thumbnailUrlList")) {

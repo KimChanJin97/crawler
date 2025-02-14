@@ -65,7 +65,7 @@ public class TableInitializer {
                 + "content TEXT, "
                 + "profile_url TEXT, "
                 + "author_name VARCHAR(50), "
-                + "created_at VARCHAR(10), "
+                + "created_at VARCHAR(25), "
                 + "FOREIGN KEY (restaurant_id) REFERENCES restaurant(id) ON DELETE CASCADE"
                 + ");";
 
