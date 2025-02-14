@@ -112,7 +112,7 @@ public class MenuReviewBatchCrawler {
                                 checkNull(decode(value.path("name").asText())),
                                 checkNull(value.path("typeName").asText()),
                                 checkNull(decode(value.path("url").asText())),
-                                checkNull(value.path("title").asText()),
+                                checkNull(decode(value.path("title").asText())),
                                 checkNull(value.path("rank").asText()),
                                 checkNull(decode(value.path("contents").asText())),
                                 checkNull(decode(value.path("profileImageUrl").asText())),
