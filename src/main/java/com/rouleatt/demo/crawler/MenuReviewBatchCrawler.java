@@ -229,27 +229,10 @@ public class MenuReviewBatchCrawler {
     }
 
     private String checkDay(String input) {
-        if (input.contains("월")) {
-            return "월";
-        } else if (input.contains("화")) {
-            return "화";
-        } else if (input.contains("수")) {
-            return "수";
-        } else if (input.contains("목")) {
-            return "목";
-        } else if (input.contains("금")) {
-            return "금";
-        } else if (input.contains("토")) {
-            return "토";
-        } else if (input.contains("일")) {
-            return "일";
-        } else if (input.contains("매일")) {
-            return "매일";
-        } else if (input.contains("휴무")) {
-            return "휴무";
-        } else {
-            return null;
+        if (input.contains("(")) {
+            return input.substring(0, input.indexOf("(")).trim();
         }
+        return input;
     }
 }
 
