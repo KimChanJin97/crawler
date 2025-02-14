@@ -60,7 +60,7 @@ public class TableInitializer {
                 + "name VARCHAR(50), "
                 + "type VARCHAR(10), "
                 + "url TEXT, "
-                + "title VARCHAR(100), "
+                + "title TEXT, "
                 + "review_idx VARCHAR(10), "
                 + "content TEXT, "
                 + "profile_url TEXT, "
