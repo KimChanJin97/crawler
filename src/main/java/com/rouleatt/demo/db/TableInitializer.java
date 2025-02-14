@@ -22,7 +22,7 @@ public class TableInitializer {
         String createRestaurantTableSql = "CREATE TABLE IF NOT EXISTS restaurant ("
                 + "id INT NOT NULL PRIMARY KEY, " // 배치를 위해 AUTO_INCREMENT 제거
                 + "name VARCHAR(50) NOT NULL, "
-                + "location POINT NOT NULL, "
+                + "location POINT NOT NULL SRID 4326, "
                 + "category VARCHAR(50), "
                 + "address VARCHAR(255), "
                 + "road_address VARCHAR(255), "

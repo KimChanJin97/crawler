@@ -22,6 +22,7 @@ import java.net.URL;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Scanner;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.brotli.dec.BrotliInputStream;
@@ -49,6 +50,7 @@ public class MenuReviewBatchCrawler {
     private static final String MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT = EnvLoader.get("MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT");
     private static final String MR_BIZ_HOUR_SECOND_DEPTH_KEY = EnvLoader.get("MR_BIZ_HOUR_SECOND_DEPTH_KEY");
     private static final String MR_BIZ_HOUR_THIRD_DEPTH_KEY = EnvLoader.get("MR_BIZ_HOUR_THIRD_DEPTH_KEY");
+    private static final Pattern MR_BIZ_HOUR_KOREAN_REGEX = Pattern.compile(EnvLoader.get("MR_BIZ_HOUR_KOREAN_REGEX"));
 
     public MenuReviewBatchCrawler() {
         this.jdbcBatchExecutor = new JdbcBatchExecutor();
@@ -136,7 +138,7 @@ public class MenuReviewBatchCrawler {
 
                             jdbcBatchExecutor.addBizHour(
                                     restaurantPk,
-                                    checkNull(businessHour.path("day").asText()),
+                                    checkDay(checkNull(businessHour.path("day").asText())),
                                     checkNull(businessHour.path("businessHours").path("start").asText()),
                                     checkNull(businessHour.path("businessHours").path("end").asText()),
                                     checkNull(businessHour.path("breakHours").path(0).path("start").asText()),
@@ -225,6 +227,14 @@ public class MenuReviewBatchCrawler {
             return null;
         }
         return str;
+    }
+
+    private String checkDay(String str) {
+        Matcher matcher = MR_BIZ_HOUR_KOREAN_REGEX.matcher(str);
+        if (matcher.find()) {
+            return matcher.group();
+        }
+        return null;
     }
 }
 
