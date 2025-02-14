@@ -1,49 +1,51 @@
 package com.rouleatt.demo.crawler;
 
+import static java.lang.Integer.MAX_VALUE;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rouleatt.demo.dto.ImageDto;
+import com.rouleatt.demo.db.JdbcBatchExecutor;
+import com.rouleatt.demo.db.RestaurantIdGenerator;
 import com.rouleatt.demo.dto.Region;
-import com.rouleatt.demo.dto.RestaurantDto;
 import com.rouleatt.demo.utils.EnvLoader;
-import com.rouleatt.demo.writer.RestaurantImageWriter;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
-import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.Stack;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class RestaurantImageCrawler {
+public class RestaurantImageBatchCrawler {
 
     private static final Set<String> ID_SET = ConcurrentHashMap.newKeySet();
 
     private final ObjectMapper mapper;
-    private final RestaurantImageWriter writer;
-    private final String RI_URI = EnvLoader.get("RI_URI");
-    private final String RI_SEARCH_COORD_KEY = EnvLoader.get("RI_SEARCH_COORD_KEY");
-    private final String RI_BOUNDARY_KEY = EnvLoader.get("RI_BOUNDARY_KEY");
-    private final String RI_REFERER_KEY = EnvLoader.get("RI_REFERER_KEY");
-    private final String RI_REFERER_VALUE = EnvLoader.get("RI_REFERER_VALUE");
-    private final String RI_LIMIT_KEY = EnvLoader.get("RI_LIMIT_KEY");
-    private final String RI_LIMIT_VALUE = EnvLoader.get("RI_LIMIT_VALUE");
-    private final String RI_TIME_CODE = EnvLoader.get("RI_TIME_CODE");
+    private final JdbcBatchExecutor jdbcBatchExecutor;
+    private final MenuReviewBatchCrawler menuReviewCrawler;
 
-    public RestaurantImageCrawler() {
+    private final static String RI_URI = EnvLoader.get("RI_URI");
+    private final static String RI_SEARCH_COORD_KEY = EnvLoader.get("RI_SEARCH_COORD_KEY");
+    private final static String RI_BOUNDARY_KEY = EnvLoader.get("RI_BOUNDARY_KEY");
+    private final static String RI_REFERER_KEY = EnvLoader.get("RI_REFERER_KEY");
+    private final static String RI_REFERER_VALUE = EnvLoader.get("RI_REFERER_VALUE");
+    private final static String RI_LIMIT_KEY = EnvLoader.get("RI_LIMIT_KEY");
+    private final static String RI_LIMIT_VALUE = EnvLoader.get("RI_LIMIT_VALUE");
+    private final static String RI_TIME_CODE = EnvLoader.get("RI_TIME_CODE_KEY");
+
+    public RestaurantImageBatchCrawler() {
         this.mapper = new ObjectMapper();
-        this.writer = new RestaurantImageWriter();
+        this.jdbcBatchExecutor = new JdbcBatchExecutor();
+        this.menuReviewCrawler = new MenuReviewBatchCrawler();
     }
 
     public void crawlAll() {
         for (Region region : Region.values()) {
 
-            String engName = region.getEngName();
             String fullName = region.getFullName();
             String shortName = region.getShortName();
             double minX = region.getMinX();
@@ -51,12 +53,11 @@ public class RestaurantImageCrawler {
             double maxX = region.getMaxX();
             double maxY = region.getMaxY();
 
-            crawl(engName, fullName, shortName, minX, minY, maxX, maxY);
+            crawl(fullName, shortName, minX, minY, maxX, maxY);
         }
     }
 
     private void crawl(
-            String engName,
             String fullName,
             String shortName,
             double minX,
@@ -78,52 +79,54 @@ public class RestaurantImageCrawler {
             int retryCount = 0;
             boolean success = false;
 
-            while (retryCount < 60 && !success) {
+            while (retryCount < MAX_VALUE && !success) {
+
                 try {
                     URI uri = setUri(currentMinX, currentMinY, currentMaxX, currentMaxY);
                     String response = sendHttpRequest(uri);
 
-                    Thread.sleep(1000);
+                    Thread.sleep(1_000);
 
                     JsonNode rootNode = mapper.readTree(response);
                     JsonNode resultNode = rootNode.path("result");
                     JsonNode metaNode = resultNode.path("meta");
                     JsonNode countNode = metaNode.path("count");
-                    JsonNode listNode = resultNode.path("list");
-
-                    Set<RestaurantDto> restaurantDtoSet = new LinkedHashSet<>();
-                    Set<ImageDto> imageDtoSet = new LinkedHashSet<>();
+                    JsonNode restaurantsNode = resultNode.path("list");
 
                     // 크롤링한 음식점이 100개 미만이라면
                     if (countNode.asInt() < 100) {
 
-                        // 파싱 후 DTO 리스트 담기
-                        for (JsonNode itemNode : listNode) {
+                        for (JsonNode restaurantNode : restaurantsNode) {
 
-                            String id = itemNode.path("id").asText();
-                            String address = address(itemNode.path("address"));
+                            // 타겟팅한 행정구역이라면
+                            if (isTarget(checkNull(restaurantNode.path("address").asText()), fullName, shortName)) {
 
-                            // 타겟팅한 행정구역이면서, 처음 크롤링하는 음식점 아이디라면
-                            if (isTarget(address, fullName, shortName) && ID_SET.add(id)) {
-                                // 음식점 DTO 생성
-                                RestaurantDto restaurantDto = RestaurantDto.of(
-                                        id,
-                                        itemNode.path("name").asText(),
-                                        itemNode.path("x").asText(),
-                                        itemNode.path("y").asText(),
-                                        itemNode.path("categoryName").asText(),
-                                        address(itemNode.path("address")),
-                                        address(itemNode.path("roadAddress")));
-                                restaurantDtoSet.add(restaurantDto);
-                                // 이미지 DTO 생성
-                                for (JsonNode imageNode : itemNode.path("images")) {
-                                    imageDtoSet.add(ImageDto.of(id, imageNode.asText()));
+                                int restaurantPk = RestaurantIdGenerator.getNextId();
+                                String restaurantId = restaurantNode.path("id").asText();
+
+                                // 음식점 크롤링 및 배치
+                                jdbcBatchExecutor.addRestaurant(
+                                        restaurantPk,
+                                        restaurantNode.path("name").asText(), // cant be null
+                                        Double.parseDouble(restaurantNode.path("x").asText()), // cant be null
+                                        Double.parseDouble(restaurantNode.path("y").asText()), // cant be null
+                                        checkNull(restaurantNode.path("categoryName").asText()),
+                                        checkNull(restaurantNode.path("address").asText()),
+                                        checkNull(restaurantNode.path("roadAddress").asText()));
+
+                                // 음식점 이미지 크롤링 및 배치
+                                for (JsonNode imageNode : restaurantNode.path("images")) {
+                                    jdbcBatchExecutor.addRestaurantImage(restaurantPk, imageNode.asText());
                                 }
+                                // 메뉴, 메뉴 이미지, 리뷰, 리뷰 이미지 영업시간 크롤링 및 배치
+                                menuReviewCrawler.crawl(restaurantPk, restaurantId);
                             }
                         }
-                        // 파일 쓰기
-                        writer.writeRestaurant(engName, restaurantDtoSet);
-                        writer.writeImage(engName, imageDtoSet);
+
+                        // 100개 미만의 음식점 나왔더라도 타겟팅한 행정구역이 아닌 경우 방지
+                        if (jdbcBatchExecutor.shouldBatchInsert()) {
+                            jdbcBatchExecutor.batchInsert();
+                        }
                     }
                     // 크롤링한 음식점이 100개 이상이라면 영역을 쪼개기 위해 스택 푸시
                     else {
@@ -136,30 +139,30 @@ public class RestaurantImageCrawler {
                         stack.push(new double[]{currentMinX, midY, midX, currentMaxY}); // 1
                     }
 
-                    // 파일 저장 또는 영역 쪼개기가 성공적으로 이뤄졌음을 업데이트
+                    // 크롤링 성공시 반복문 종료
                     success = true;
+                    break;
 
                 } catch (IOException e) {
                     retryCount++;
-                    if (retryCount >= 60) {
-                        log.error("[RI] Exception Max Retry");
-                    }
-                    try {
-                        Thread.sleep(10_000 * retryCount); // 재시도 간격 증가
-                    } catch (InterruptedException ex) {
-                        Thread.currentThread().interrupt();
-                    }
+                    log.error("[RI] IOException 발생 (재시도 횟수 {})", retryCount, e);
                 } catch (Exception e) {
                     retryCount++;
-                    if (retryCount >= 60) {
-                        log.error("[RI] Exception Max Retry");
-                    }
+                    log.error("[RI] Exception 발생 (재시도 횟수 {})", retryCount, e);
+                }
+
+                // 크롤링 실패시 일정시간 슬립 후 재시도(반복문 순회)
+                if (!success) {
                     try {
-                        Thread.sleep(10_000 * retryCount); // 재시도 간격 증가
+                        Thread.sleep(2_000 * retryCount); // 재시도 간격 증가
                     } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();
                     }
                 }
+            }
+
+            if (!success) {
+                log.error("[RI] 크롤링 실패 : 최대 재시도 횟수 초과");
             }
         }
     }
@@ -201,16 +204,15 @@ public class RestaurantImageCrawler {
         }
     }
 
-    private String address(JsonNode addressNode) {
-        String address = addressNode.asText();
-        if (address.length() > 0) {
-            return address;
-        }
-        return null;
-    }
-
     private boolean isTarget(String address, String fullName, String shortName) {
         return address != null && (address.contains(fullName) || address.contains(shortName));
+    }
+
+    private String checkNull(String str) {
+        if (str == null || str.isEmpty()) {
+            return null;
+        }
+        return str;
     }
 }
 
