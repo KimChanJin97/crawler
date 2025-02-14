@@ -14,15 +14,11 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
-import java.util.Set;
 import java.util.Stack;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class RestaurantImageBatchCrawler {
-
-    private static final Set<String> ID_SET = ConcurrentHashMap.newKeySet();
 
     private final ObjectMapper mapper;
     private final JdbcBatchExecutor jdbcBatchExecutor;
@@ -205,14 +201,18 @@ public class RestaurantImageBatchCrawler {
     }
 
     private boolean isTarget(String address, String fullName, String shortName) {
-        return address != null && (address.contains(fullName) || address.contains(shortName));
+        if (address != null) {
+            String region = address.substring(0, 8);
+            return region.contains(fullName) || region.contains(shortName);
+        }
+        return false;
     }
 
-    private String checkNull(String str) {
-        if (str == null || str.isEmpty()) {
+    private String checkNull(String input) {
+        if (input == null || input.isEmpty()) {
             return null;
         }
-        return str;
+        return input;
     }
 }
 

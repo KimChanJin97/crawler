@@ -50,7 +50,7 @@ public class MenuReviewBatchCrawler {
     private static final String MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT = EnvLoader.get("MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT");
     private static final String MR_BIZ_HOUR_SECOND_DEPTH_KEY = EnvLoader.get("MR_BIZ_HOUR_SECOND_DEPTH_KEY");
     private static final String MR_BIZ_HOUR_THIRD_DEPTH_KEY = EnvLoader.get("MR_BIZ_HOUR_THIRD_DEPTH_KEY");
-    private static final Pattern MR_BIZ_HOUR_KOREAN_REGEX = Pattern.compile(EnvLoader.get("MR_BIZ_HOUR_KOREAN_REGEX"));
+    private static final Pattern MR_BIZ_HOUR_DAY_REGEX = Pattern.compile(EnvLoader.get("MR_BIZ_HOUR_DAY_REGEX"));
 
     public MenuReviewBatchCrawler() {
         this.jdbcBatchExecutor = new JdbcBatchExecutor();
@@ -222,19 +222,35 @@ public class MenuReviewBatchCrawler {
         return unescapeJava(unescapeHtml4(decodeUnicode(input)));
     }
 
-    private String checkNull(String str) {
-        if (str == null || str.isEmpty()) {
+    private String checkNull(String input) {
+        if (input == null || input.isEmpty()) {
             return null;
         }
-        return str;
+        return input;
     }
 
-    private String checkDay(String str) {
-        Matcher matcher = MR_BIZ_HOUR_KOREAN_REGEX.matcher(str);
-        if (matcher.find()) {
-            return matcher.group();
+    private String checkDay(String input) {
+        if (input.contains("월")) {
+            return "월";
+        } else if (input.contains("화")) {
+            return "화";
+        } else if (input.contains("수")) {
+            return "수";
+        } else if (input.contains("목")) {
+            return "목";
+        } else if (input.contains("금")) {
+            return "금";
+        } else if (input.contains("토")) {
+            return "토";
+        } else if (input.contains("일")) {
+            return "일";
+        } else if (input.contains("매일")) {
+            return "매일";
+        } else if (input.contains("휴무")) {
+            return "휴무";
+        } else {
+            return null;
         }
-        return null;
     }
 }
 
