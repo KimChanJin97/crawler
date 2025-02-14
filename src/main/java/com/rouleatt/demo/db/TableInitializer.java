@@ -32,7 +32,7 @@ public class TableInitializer {
         String createRestaurantImageTableSql = "CREATE TABLE IF NOT EXISTS restaurant_image ("
                 + "id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
                 + "restaurant_id INT NOT NULL, "
-                + "url VARCHAR(500), "
+                + "url TEXT, "
                 + "FOREIGN KEY (restaurant_id) REFERENCES restaurant(id) ON DELETE CASCADE"
                 + ");";
 
@@ -50,7 +50,7 @@ public class TableInitializer {
         String createMenuImageTableSql = "CREATE TABLE IF NOT EXISTS menu_image ("
                 + "id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
                 + "menu_id INT NOT NULL, "
-                + "image_url VARCHAR(500), "
+                + "image_url TEXT, "
                 + "FOREIGN KEY (menu_id) REFERENCES menu(id) ON DELETE CASCADE"
                 + ");";
 
@@ -59,11 +59,11 @@ public class TableInitializer {
                 + "restaurant_id INT NOT NULL, "
                 + "name VARCHAR(50), "
                 + "type VARCHAR(10), "
-                + "url VARCHAR(500), "
+                + "url TEXT, "
                 + "title VARCHAR(100), "
                 + "review_idx VARCHAR(10), "
                 + "content TEXT, "
-                + "profile_url VARCHAR(500), "
+                + "profile_url TEXT, "
                 + "author_name VARCHAR(50), "
                 + "created_at VARCHAR(10), "
                 + "FOREIGN KEY (restaurant_id) REFERENCES restaurant(id) ON DELETE CASCADE"
@@ -72,7 +72,7 @@ public class TableInitializer {
         String reviewImageTableSql = "CREATE TABLE IF NOT EXISTS review_image ("
                 + "id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
                 + "review_id INT NOT NULL, "
-                + "thumbnail_url VARCHAR(500), "
+                + "thumbnail_url TEXT, "
                 + "FOREIGN KEY (review_id) REFERENCES review(id) ON DELETE CASCADE"
                 + ");";
 
