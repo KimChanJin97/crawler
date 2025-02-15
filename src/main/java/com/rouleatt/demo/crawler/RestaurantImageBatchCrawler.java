@@ -7,14 +7,25 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rouleatt.demo.db.JdbcBatchExecutor;
 import com.rouleatt.demo.db.RestaurantIdGenerator;
 import com.rouleatt.demo.dto.Region;
+import com.rouleatt.demo.proxy.ProxyManager;
+import com.rouleatt.demo.proxy.ProxyManager.ProxyConfig;
 import com.rouleatt.demo.utils.EnvLoader;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.Authenticator;
 import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
+import java.net.PasswordAuthentication;
+import java.net.Proxy;
+import java.net.Proxy.Type;
 import java.net.URI;
 import java.net.URL;
+import java.util.Base64;
 import java.util.Stack;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import javax.net.ssl.HttpsURLConnection;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -23,6 +34,7 @@ public class RestaurantImageBatchCrawler {
     private final ObjectMapper mapper;
     private final JdbcBatchExecutor jdbcBatchExecutor;
     private final MenuReviewBatchCrawler menuReviewCrawler;
+    private final ExecutorService executorService;
 
     private final static String RI_URI = EnvLoader.get("RI_URI");
     private final static String RI_SEARCH_COORD_KEY = EnvLoader.get("RI_SEARCH_COORD_KEY");
@@ -37,20 +49,24 @@ public class RestaurantImageBatchCrawler {
         this.mapper = new ObjectMapper();
         this.jdbcBatchExecutor = new JdbcBatchExecutor();
         this.menuReviewCrawler = new MenuReviewBatchCrawler();
+        this.executorService = Executors.newFixedThreadPool(4);
     }
 
     public void crawlAll() {
         for (Region region : Region.values()) {
 
-            String fullName = region.getFullName();
-            String shortName = region.getShortName();
-            double minX = region.getMinX();
-            double minY = region.getMinY();
-            double maxX = region.getMaxX();
-            double maxY = region.getMaxY();
+            executorService.submit(() -> {
+                String fullName = region.getFullName();
+                String shortName = region.getShortName();
+                double minX = region.getMinX();
+                double minY = region.getMinY();
+                double maxX = region.getMaxX();
+                double maxY = region.getMaxY();
 
-            crawl(fullName, shortName, minX, minY, maxX, maxY);
+                crawl(fullName, shortName, minX, minY, maxX, maxY);
+            });
         }
+        executorService.shutdown();
     }
 
     private void crawl(
@@ -92,6 +108,8 @@ public class RestaurantImageBatchCrawler {
                     // 크롤링한 음식점이 100개 미만이라면
                     if (countNode.asInt() < 100) {
 
+                        System.out.println("100개 미만");
+
                         for (JsonNode restaurantNode : restaurantsNode) {
 
                             // 타겟팅한 행정구역이라면
@@ -126,6 +144,9 @@ public class RestaurantImageBatchCrawler {
                     }
                     // 크롤링한 음식점이 100개 이상이라면 영역을 쪼개기 위해 스택 푸시
                     else {
+
+                        System.out.println("100개 이상");
+
                         double midX = (currentMinX + currentMaxX) / 2;
                         double midY = (currentMinY + currentMaxY) / 2;
 
@@ -181,8 +202,27 @@ public class RestaurantImageBatchCrawler {
     }
 
     private String sendHttpRequest(URI uri) throws IOException {
+
+        ProxyConfig proxyConfig = ProxyManager.getNextProxyConfig(); // 라운드 로빈 방식
+        Proxy proxy = proxyConfig.toProxy();
+
+        // HTTPS 터널링 허용
+        System.setProperty("jdk.http.auth.tunneling.disabledSchemes", "");
+        // 프록시 인증을 전역 설정
+        Authenticator.setDefault(new Authenticator() {
+            @Override
+            protected PasswordAuthentication getPasswordAuthentication() {
+                return new PasswordAuthentication(proxyConfig.username, proxyConfig.password.toCharArray());
+            }
+        });
+
         URL url = uri.toURL();
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        HttpsURLConnection conn = (HttpsURLConnection) url.openConnection(proxy);
+
+        String auth = proxyConfig.username + ":" + proxyConfig.password;
+        String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes());
+        conn.setRequestProperty("Proxy-Authorization", "Basic " + encodedAuth);
+
         conn.setRequestMethod("GET");
         conn.setRequestProperty(RI_REFERER_KEY, RI_REFERER_VALUE);
         conn.setConnectTimeout(5000);
