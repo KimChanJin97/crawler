@@ -15,14 +15,12 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Authenticator;
-import java.net.HttpURLConnection;
-import java.net.InetSocketAddress;
 import java.net.PasswordAuthentication;
 import java.net.Proxy;
-import java.net.Proxy.Type;
 import java.net.URI;
 import java.net.URL;
 import java.util.Base64;
+import java.util.Random;
 import java.util.Stack;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -98,7 +96,7 @@ public class RestaurantImageBatchCrawler {
                     URI uri = setUri(currentMinX, currentMinY, currentMaxX, currentMaxY);
                     String response = sendHttpRequest(uri);
 
-                    Thread.sleep(1_000);
+                    Thread.sleep(1000 + new Random().nextInt(4000)); // 1초 ~ 5초 랜덤 슬립
 
                     JsonNode rootNode = mapper.readTree(response);
                     JsonNode resultNode = rootNode.path("result");
@@ -108,8 +106,6 @@ public class RestaurantImageBatchCrawler {
 
                     // 크롤링한 음식점이 100개 미만이라면
                     if (countNode.asInt() < 100) {
-
-                        System.out.println("100개 미만");
 
                         for (JsonNode restaurantNode : restaurantsNode) {
 
@@ -145,8 +141,6 @@ public class RestaurantImageBatchCrawler {
                     }
                     // 크롤링한 음식점이 100개 이상이라면 영역을 쪼개기 위해 스택 푸시
                     else {
-
-                        System.out.println("100개 이상");
 
                         double midX = (currentMinX + currentMaxX) / 2;
                         double midY = (currentMinY + currentMaxY) / 2;

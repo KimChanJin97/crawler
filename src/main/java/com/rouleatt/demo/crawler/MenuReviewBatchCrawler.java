@@ -21,6 +21,7 @@ import java.net.URI;
 import java.net.URL;
 import java.util.Iterator;
 import java.util.Map.Entry;
+import java.util.Random;
 import java.util.Scanner;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
@@ -46,7 +47,8 @@ public class MenuReviewBatchCrawler {
     private static final Pattern MR_MENU_PATTERN = Pattern.compile(EnvLoader.get("MR_MENU_PATTERN"));
     private static final Pattern MR_REVIEW_PATTERN = Pattern.compile(EnvLoader.get("MR_REVIEW_PATTERN"));
     private static final Pattern MR_ROOT_QUERY_PATTERN = Pattern.compile(EnvLoader.get("MR_ROOT_QUERY_PATTERN"));
-    private static final String MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT = EnvLoader.get("MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT");
+    private static final String MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT = EnvLoader.get(
+            "MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT");
     private static final String MR_BIZ_HOUR_SECOND_DEPTH_KEY = EnvLoader.get("MR_BIZ_HOUR_SECOND_DEPTH_KEY");
     private static final String MR_BIZ_HOUR_THIRD_DEPTH_KEY = EnvLoader.get("MR_BIZ_HOUR_THIRD_DEPTH_KEY");
 
@@ -66,7 +68,7 @@ public class MenuReviewBatchCrawler {
                 URI uri = setUri(restaurantId);
                 String response = sendHttpRequest(uri, restaurantId);
 
-                Thread.sleep(1_000);
+                Thread.sleep(1000 + new Random().nextInt(4000)); // 1초 ~ 5초 랜덤 슬립
 
                 Document doc = Jsoup.parse(response, "UTF-8");
                 String script = doc.select("script").get(2).html(); // 3번째 <script> 태그
