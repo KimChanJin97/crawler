@@ -1,7 +1,7 @@
 package com.rouleatt.demo.crawler;
 
 import static com.rouleatt.demo.utils.CrawlerUtils.decodeUnicode;
-import static java.lang.Integer.*;
+import static java.lang.Integer.MAX_VALUE;
 import static org.apache.commons.text.StringEscapeUtils.unescapeHtml4;
 import static org.apache.commons.text.StringEscapeUtils.unescapeJava;
 
@@ -22,7 +22,6 @@ import java.net.URL;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Scanner;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.brotli.dec.BrotliInputStream;
@@ -98,7 +97,7 @@ public class MenuReviewBatchCrawler {
                                 value.path("index").asInt()
                         );
 
-                        for (JsonNode image :  value.path("images")) {
+                        for (JsonNode image : value.path("images")) {
                             jdbcBatchExecutor.addMenuImage(menuPk, decode(image.asText()));
                         }
                     }
@@ -235,5 +234,3 @@ public class MenuReviewBatchCrawler {
         return input;
     }
 }
-
-

@@ -29,7 +29,7 @@ public class JdbcBatchExecutor {
     private static final List<ReviewImageDto> REVIEW_IMAGE_BATCH = new ArrayList<>();
     private static final List<BizHourDto> BIZ_HOUR_BATCH = new ArrayList<>();
 
-    private static final String RESTAURANT_INSERT_MANUAL_INCREMENT_SQL = "INSERT INTO restaurant (id, name, location, category, address, road_address) VALUES (?, ?, ST_GeomFromText(?, 4326), ?, ?, ?)";
+    private static final String RESTAURANT_INSERT_MANUAL_INCREMENT_SQL = "INSERT INTO restaurant (id, name, coordinate, category, address, road_address) VALUES (?, ?, ST_GeomFromText(?, 4326), ?, ?, ?)";
     private static final String RESTAURANT_IMAGE_AUTO_INCREMENT_INSERT_SQL = "INSERT INTO restaurant_image (restaurant_id, url) VALUES (?, ?)";
     private static final String MENU_INSERT_MANUAL_INCREMENT_SQL = "INSERT INTO menu (id, restaurant_id, name, price, is_recommended, description, menu_idx) VALUES (?, ?, ?, ?, ?, ?, ?)";
     private static final String MENU_IMAGE_AUTO_INCREMENT_INSERT_SQL = "INSERT INTO menu_image (menu_id, image_url) VALUES (?, ?)";

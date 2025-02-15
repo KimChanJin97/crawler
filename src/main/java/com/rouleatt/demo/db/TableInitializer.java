@@ -22,11 +22,11 @@ public class TableInitializer {
         String createRestaurantTableSql = "CREATE TABLE IF NOT EXISTS restaurant ("
                 + "id INT NOT NULL PRIMARY KEY, " // 배치를 위해 AUTO_INCREMENT 제거
                 + "name VARCHAR(50) NOT NULL, "
-                + "location POINT NOT NULL SRID 4326, "
+                + "coordinate POINT NOT NULL SRID 4326, "
                 + "category VARCHAR(50), "
                 + "address VARCHAR(255), "
                 + "road_address VARCHAR(255), "
-                + "SPATIAL INDEX idx_location (location)"
+                + "SPATIAL INDEX idx_location (coordinate)"
                 + ");";
 
         String createRestaurantImageTableSql = "CREATE TABLE IF NOT EXISTS restaurant_image ("
@@ -39,7 +39,7 @@ public class TableInitializer {
         String createMenuTableSql = "CREATE TABLE IF NOT EXISTS menu ("
                 + "id INT NOT NULL PRIMARY KEY, " // 배치를 위해 AUTO_INCREMENT 제거
                 + "restaurant_id INT NOT NULL, "
-                + "name VARCHAR(50), "
+                + "name VARCHAR(255), "
                 + "price VARCHAR(50), "
                 + "is_recommended BOOLEAN, "
                 + "description VARCHAR(255), "
