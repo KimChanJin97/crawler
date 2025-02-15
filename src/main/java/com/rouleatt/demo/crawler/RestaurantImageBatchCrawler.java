@@ -207,6 +207,16 @@ public class RestaurantImageBatchCrawler {
         ProxyConfig proxyConfig = ProxyManager.getNextProxyConfig();
         Proxy proxy = proxyConfig.toProxy();
 
+        // 프록시 터널링 허용
+        System.setProperty("jdk.http.auth.tunneling.disabledSchemes", "");
+        // 프록시 인증을 전역적으로 설정
+        Authenticator.setDefault(new Authenticator() {
+            @Override
+            protected PasswordAuthentication getPasswordAuthentication() {
+                return new PasswordAuthentication(proxyConfig.username, proxyConfig.password.toCharArray());
+            }
+        });
+
         URL url = uri.toURL();
         HttpsURLConnection conn = (HttpsURLConnection) url.openConnection(proxy);
 
