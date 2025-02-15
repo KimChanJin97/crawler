@@ -7,10 +7,11 @@ public class CrawlerApplication {
 
     public static void main(String[] args) {
 
-        TableInitializer tableInitializer = new TableInitializer();
-        tableInitializer.init();
+        TableInitializer initializer = new TableInitializer();
+        initializer.init();
 
-        RestaurantImageBatchCrawler restaurantImageBatchCrawler = new RestaurantImageBatchCrawler();
-        restaurantImageBatchCrawler.crawlAll();
+        RestaurantImageBatchCrawler crawler = new RestaurantImageBatchCrawler();
+        crawler.crawlAll();
+
     }
 }

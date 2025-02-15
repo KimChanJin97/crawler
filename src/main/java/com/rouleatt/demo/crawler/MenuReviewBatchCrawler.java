@@ -11,14 +11,20 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rouleatt.demo.db.JdbcBatchExecutor;
 import com.rouleatt.demo.db.MenuIdGenerator;
 import com.rouleatt.demo.db.ReviewIdGenerator;
+import com.rouleatt.demo.proxy.ProxyManager;
+import com.rouleatt.demo.proxy.ProxyManager.ProxyConfig;
 import com.rouleatt.demo.utils.EnvLoader;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.Authenticator;
 import java.net.HttpURLConnection;
+import java.net.PasswordAuthentication;
+import java.net.Proxy;
 import java.net.URI;
 import java.net.URL;
+import java.util.Base64;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Random;
@@ -184,11 +190,33 @@ public class MenuReviewBatchCrawler {
     }
 
     private String sendHttpRequest(URI uri, String restaurantId) throws IOException {
-        HttpURLConnection conn = (HttpURLConnection) new URL(uri.toString()).openConnection();
+
+        ProxyConfig proxyConfig = ProxyManager.getNextProxyConfig();
+        Proxy proxy = proxyConfig.toProxy();
+
+        // 프록시 터널링 허용
+        System.setProperty("jdk.http.auth.tunneling.disabledSchemes", "");
+        // 프록시 인증을 전역적으로 설정
+        Authenticator.setDefault(new Authenticator() {
+            @Override
+            protected PasswordAuthentication getPasswordAuthentication() {
+                return new PasswordAuthentication(proxyConfig.username, proxyConfig.password.toCharArray());
+            }
+        });
+
+        URL url = uri.toURL();
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection(proxy);
+
+        String auth = proxyConfig.username + ":" + proxyConfig.password;
+        String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes());
+        conn.setRequestProperty("Proxy-Authorization", "Basic " + encodedAuth);
+
         conn.setRequestMethod("GET");
         conn.setRequestProperty(MR_ACCEPT_ENCODING_KEY, MR_ACCEPT_ENCODING_VALUE);
         conn.setRequestProperty(MR_REFERER_KEY, String.format(MR_REFERER_VALUE_FORMAT, restaurantId));
-        conn.setRequestProperty("Connection", "Keep-Alive");
+        conn.setConnectTimeout(5000);
+        conn.setReadTimeout(5000);
+        conn.setRequestProperty("Connection", "close");
 
         try (InputStream responseStream = conn.getInputStream()) {
             if ("br".equalsIgnoreCase(conn.getContentEncoding())) {

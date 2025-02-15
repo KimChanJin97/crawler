@@ -222,6 +222,7 @@ public class RestaurantImageBatchCrawler {
         conn.setRequestProperty(RI_REFERER_KEY, RI_REFERER_VALUE);
         conn.setConnectTimeout(5000);
         conn.setReadTimeout(5000);
+        conn.setRequestProperty("Connection", "close");
 
         try (BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
             StringBuilder response = new StringBuilder();
