@@ -1,5 +1,6 @@
 package com.rouleatt.demo.crawler;
 
+import static com.rouleatt.demo.proxy.ProxyManager.PROXY_CONFIGS;
 import static java.lang.Integer.MAX_VALUE;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -49,7 +50,7 @@ public class RestaurantImageBatchCrawler {
         this.mapper = new ObjectMapper();
         this.jdbcBatchExecutor = new JdbcBatchExecutor();
         this.menuReviewCrawler = new MenuReviewBatchCrawler();
-        this.executorService = Executors.newFixedThreadPool(4);
+        this.executorService = Executors.newFixedThreadPool(PROXY_CONFIGS.size());
     }
 
     public void crawlAll() {
@@ -203,18 +204,8 @@ public class RestaurantImageBatchCrawler {
 
     private String sendHttpRequest(URI uri) throws IOException {
 
-        ProxyConfig proxyConfig = ProxyManager.getNextProxyConfig(); // 라운드 로빈 방식
+        ProxyConfig proxyConfig = ProxyManager.getNextProxyConfig();
         Proxy proxy = proxyConfig.toProxy();
-
-        // HTTPS 터널링 허용
-        System.setProperty("jdk.http.auth.tunneling.disabledSchemes", "");
-        // 프록시 인증을 전역 설정
-        Authenticator.setDefault(new Authenticator() {
-            @Override
-            protected PasswordAuthentication getPasswordAuthentication() {
-                return new PasswordAuthentication(proxyConfig.username, proxyConfig.password.toCharArray());
-            }
-        });
 
         URL url = uri.toURL();
         HttpsURLConnection conn = (HttpsURLConnection) url.openConnection(proxy);
