@@ -1,5 +1,7 @@
 plugins {
 	id 'java'
+	id 'application'
+	id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
 group = 'com.rouleatt'
@@ -9,6 +11,24 @@ java {
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(21)
 	}
+}
+
+application {
+	mainClass = 'com.rouleatt.demo.CrawlerApplication' // Main-Class 지정
+}
+
+jar {
+	manifest {
+		attributes(
+				'Main-Class': 'com/rouleatt/demo/CrawlerApplication' // Main 클래스 지정
+		)
+	}
+}
+
+shadowJar {
+	archiveBaseName.set('crawler-fat')
+	archiveClassifier.set('')
+	archiveVersion.set('')
 }
 
 configurations {
