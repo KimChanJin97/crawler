@@ -1,9 +1,12 @@
 package com.rouleatt.demo.db;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 public class ReviewIdGenerator {
-    private static int id = 1;
+
+    private static final AtomicInteger id = new AtomicInteger(0);
 
     public static int getNextId() {
-        return id++;
+        return id.getAndIncrement();
     }
 }
