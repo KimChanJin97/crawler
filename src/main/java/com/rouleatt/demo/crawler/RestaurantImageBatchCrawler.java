@@ -127,8 +127,6 @@ public class RestaurantImageBatchCrawler {
                                 int restaurantPk = RestaurantIdGenerator.getNextId();
                                 String restaurantId = restaurantNode.path("id").asText();
 
-                                log.info("[RI] 쓰레드 {} | 음식점 {}", Thread.currentThread().getName(), restaurantId);
-
                                 // 음식점 크롤링 및 배치
                                 jdbcBatchExecutor.addRestaurant(
                                         restaurantPk,
@@ -180,7 +178,7 @@ public class RestaurantImageBatchCrawler {
                 // 크롤링 실패시 일정시간 슬립 후 재시도
                 if (!success) {
                     try {
-                        Thread.sleep(60_000 * retryCount); // 재시도 간격 증가
+                        Thread.sleep(60_000 * retryCount);
                     } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();
                     }
@@ -214,8 +212,6 @@ public class RestaurantImageBatchCrawler {
 
         ProxyConfig proxyConfig = ProxyManager.getNextProxyConfig();
         HttpHost proxy = new HttpHost(proxyConfig.ip, proxyConfig.port);
-
-        log.info("[RI] 쓰레드 {} | 프록시 {} 할당", Thread.currentThread().getName(), proxyConfig.ip);
 
         // 프록시 인증 정보 설정
         BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();

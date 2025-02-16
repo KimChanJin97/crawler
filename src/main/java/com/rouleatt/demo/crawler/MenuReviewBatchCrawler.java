@@ -55,8 +55,7 @@ public class MenuReviewBatchCrawler {
     private static final Pattern MR_MENU_PATTERN = Pattern.compile(EnvLoader.get("MR_MENU_PATTERN"));
     private static final Pattern MR_REVIEW_PATTERN = Pattern.compile(EnvLoader.get("MR_REVIEW_PATTERN"));
     private static final Pattern MR_ROOT_QUERY_PATTERN = Pattern.compile(EnvLoader.get("MR_ROOT_QUERY_PATTERN"));
-    private static final String MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT = EnvLoader.get(
-            "MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT");
+    private static final String MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT = EnvLoader.get("MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT");
     private static final String MR_BIZ_HOUR_SECOND_DEPTH_KEY = EnvLoader.get("MR_BIZ_HOUR_SECOND_DEPTH_KEY");
     private static final String MR_BIZ_HOUR_THIRD_DEPTH_KEY = EnvLoader.get("MR_BIZ_HOUR_THIRD_DEPTH_KEY");
 
@@ -73,8 +72,6 @@ public class MenuReviewBatchCrawler {
         while (retryCount < MAX_VALUE && !success) {
 
             try {
-
-                log.info("[RI] 쓰레드 {} | 음식점 {}", Thread.currentThread().getName(), restaurantId);
 
                 URI uri = setUri(restaurantId);
                 String response = sendHttpRequest(uri, restaurantId);
@@ -175,10 +172,10 @@ public class MenuReviewBatchCrawler {
                 log.error("[MR] Exception 발생 (재시도 횟수 {})", retryCount, e);
             }
 
-            // 크롤링 실패시 일정시간 슬립 후 재시도(반복문 순회)
+            // 크롤링 실패시 일정시간 슬립 후 재시도
             if (!success) {
                 try {
-                    Thread.sleep(2_000 * retryCount); // 재시도 간격 증가
+                    Thread.sleep(60_000 * retryCount);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                 }
@@ -198,8 +195,6 @@ public class MenuReviewBatchCrawler {
 
         ProxyConfig proxyConfig = ProxyManager.getNextProxyConfig();
         HttpHost proxy = new HttpHost(proxyConfig.ip, proxyConfig.port);
-
-        log.info("[MR] 쓰레드 {} | 프록시 {} 할당", Thread.currentThread().getName(), proxyConfig.ip);
 
         // 프록시 인증 정보 설정
         BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
