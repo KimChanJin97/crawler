@@ -55,7 +55,8 @@ public class MenuReviewBatchCrawler {
     private static final Pattern MR_MENU_PATTERN = Pattern.compile(EnvLoader.get("MR_MENU_PATTERN"));
     private static final Pattern MR_REVIEW_PATTERN = Pattern.compile(EnvLoader.get("MR_REVIEW_PATTERN"));
     private static final Pattern MR_ROOT_QUERY_PATTERN = Pattern.compile(EnvLoader.get("MR_ROOT_QUERY_PATTERN"));
-    private static final String MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT = EnvLoader.get("MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT");
+    private static final String MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT = EnvLoader.get(
+            "MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT");
     private static final String MR_BIZ_HOUR_SECOND_DEPTH_KEY = EnvLoader.get("MR_BIZ_HOUR_SECOND_DEPTH_KEY");
     private static final String MR_BIZ_HOUR_THIRD_DEPTH_KEY = EnvLoader.get("MR_BIZ_HOUR_THIRD_DEPTH_KEY");
 
@@ -221,9 +222,9 @@ public class MenuReviewBatchCrawler {
             request.addHeader(USER_AGENT_KEY, getUserAgentValue());
             request.addHeader(MR_ACCEPT_ENCODING_KEY, MR_ACCEPT_ENCODING_VALUE);
 
-            // 2초 ~ 5초 랜덤 슬립
+            // 5초 ~ 10초 랜덤 슬립
             try {
-                Thread.sleep(2_000 + new Random().nextInt(3_000));
+                Thread.sleep(5_000 + new Random().nextInt(5_000));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }

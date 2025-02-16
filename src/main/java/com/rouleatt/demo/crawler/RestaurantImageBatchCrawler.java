@@ -67,9 +67,9 @@ public class RestaurantImageBatchCrawler {
                 double maxX = region.getMaxX();
                 double maxY = region.getMaxY();
 
-                // 2초 ~ 5초 랜덤 슬립
+                // 5초 ~ 10초 랜덤 슬립
                 try {
-                    Thread.sleep(2_000 + new Random().nextInt(3_000));
+                    Thread.sleep(5_000 + new Random().nextInt(5_000));
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
@@ -177,10 +177,10 @@ public class RestaurantImageBatchCrawler {
                     log.error("[RI] Exception 발생 (재시도 횟수 {})", retryCount, e);
                 }
 
-                // 크롤링 실패시 일정시간 슬립 후 재시도(반복문 순회)
+                // 크롤링 실패시 일정시간 슬립 후 재시도
                 if (!success) {
                     try {
-                        Thread.sleep(2_000 * retryCount); // 재시도 간격 증가
+                        Thread.sleep(60_000 * retryCount); // 재시도 간격 증가
                     } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();
                     }
@@ -237,9 +237,9 @@ public class RestaurantImageBatchCrawler {
             request.addHeader(RI_REFERER_KEY, RI_REFERER_VALUE);
             request.addHeader(USER_AGENT_KEY, getUserAgentValue());
 
-            // 2초 ~ 5초 랜덤 슬립
+            // 5초 ~ 10초 랜덤 슬립
             try {
-                Thread.sleep(2_000 + new Random().nextInt(3_000));
+                Thread.sleep(5_000 + new Random().nextInt(5_000));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
