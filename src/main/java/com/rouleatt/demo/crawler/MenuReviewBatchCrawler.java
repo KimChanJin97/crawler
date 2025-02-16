@@ -1,6 +1,8 @@
 package com.rouleatt.demo.crawler;
 
+import static com.rouleatt.demo.utils.CrawlerUtils.USER_AGENT_KEY;
 import static com.rouleatt.demo.utils.CrawlerUtils.decodeUnicode;
+import static com.rouleatt.demo.utils.CrawlerUtils.getUserAgentValue;
 import static java.lang.Integer.MAX_VALUE;
 import static org.apache.commons.text.StringEscapeUtils.unescapeHtml4;
 import static org.apache.commons.text.StringEscapeUtils.unescapeJava;
@@ -14,24 +16,24 @@ import com.rouleatt.demo.db.ReviewIdGenerator;
 import com.rouleatt.demo.proxy.ProxyManager;
 import com.rouleatt.demo.proxy.ProxyManager.ProxyConfig;
 import com.rouleatt.demo.utils.EnvLoader;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.Authenticator;
-import java.net.HttpURLConnection;
-import java.net.PasswordAuthentication;
-import java.net.Proxy;
 import java.net.URI;
-import java.net.URL;
-import java.util.Base64;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Random;
-import java.util.Scanner;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
-import org.brotli.dec.BrotliInputStream;
+import org.apache.hc.client5.http.auth.AuthScope;
+import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
+import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.ParseException;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
@@ -74,7 +76,7 @@ public class MenuReviewBatchCrawler {
                 URI uri = setUri(restaurantId);
                 String response = sendHttpRequest(uri, restaurantId);
 
-                Thread.sleep(1000 + new Random().nextInt(4000)); // 1초 ~ 5초 랜덤 슬립
+                Thread.sleep(1_000);
 
                 Document doc = Jsoup.parse(response, "UTF-8");
                 String script = doc.select("script").get(2).html(); // 3번째 <script> 태그
@@ -189,57 +191,42 @@ public class MenuReviewBatchCrawler {
         return URI.create(String.format(MR_URI_FORMAT, restaurantId));
     }
 
-    private String sendHttpRequest(URI uri, String restaurantId) throws IOException {
+    private String sendHttpRequest(URI uri, String restaurantId) throws IOException, ParseException {
 
         ProxyConfig proxyConfig = ProxyManager.getNextProxyConfig();
-        Proxy proxy = proxyConfig.toProxy();
+        HttpHost proxy = new HttpHost(proxyConfig.ip, proxyConfig.port);
 
-        // 프록시 터널링 허용
-        System.setProperty("jdk.http.auth.tunneling.disabledSchemes", "");
-        // 프록시 인증을 전역적으로 설정
-        Authenticator.setDefault(new Authenticator() {
-            @Override
-            protected PasswordAuthentication getPasswordAuthentication() {
-                return new PasswordAuthentication(proxyConfig.username, proxyConfig.password.toCharArray());
+        // 프록시 인증 정보 설정
+        BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+        credentialsProvider.setCredentials(
+                new AuthScope(proxy),
+                new UsernamePasswordCredentials(
+                        proxyConfig.username,
+                        proxyConfig.password.toCharArray())
+        );
+
+        try (CloseableHttpClient httpClient = HttpClients.custom()
+                .setProxy(proxy)
+                .setDefaultCredentialsProvider(credentialsProvider)
+                .setConnectionManager(new PoolingHttpClientConnectionManager())
+                .build()) {
+
+            // 헤더 설정
+            HttpGet request = new HttpGet(uri);
+            request.addHeader(MR_REFERER_KEY, String.format(MR_REFERER_VALUE_FORMAT, restaurantId));
+            request.addHeader(USER_AGENT_KEY, getUserAgentValue());
+            request.addHeader(MR_ACCEPT_ENCODING_KEY, MR_ACCEPT_ENCODING_VALUE);
+
+            // 5초 ~ 10초 랜덤 슬립
+            try {
+                Thread.sleep(5_000 + new Random().nextInt(5_000));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
-        });
 
-        URL url = uri.toURL();
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection(proxy);
-
-        String auth = proxyConfig.username + ":" + proxyConfig.password;
-        String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes());
-        conn.setRequestProperty("Proxy-Authorization", "Basic " + encodedAuth);
-
-        conn.setRequestMethod("GET");
-        conn.setRequestProperty(MR_ACCEPT_ENCODING_KEY, MR_ACCEPT_ENCODING_VALUE);
-        conn.setRequestProperty(MR_REFERER_KEY, String.format(MR_REFERER_VALUE_FORMAT, restaurantId));
-        conn.setConnectTimeout(5000);
-        conn.setReadTimeout(5000);
-        conn.setRequestProperty("Connection", "close");
-
-        try (InputStream responseStream = conn.getInputStream()) {
-            if ("br".equalsIgnoreCase(conn.getContentEncoding())) {
-                return readBrotliStream(responseStream);
-            } else {
-                return new Scanner(responseStream, "UTF-8").useDelimiter("\\A").next();
+            try (CloseableHttpResponse response = httpClient.execute(request)) {
+                return EntityUtils.toString(response.getEntity());
             }
-        } finally {
-            conn.disconnect();
-        }
-    }
-
-    private static String readBrotliStream(InputStream encodedStream) throws IOException {
-        try (BrotliInputStream brotliInputStream = new BrotliInputStream(encodedStream);
-             InputStreamReader reader = new InputStreamReader(brotliInputStream);
-             BufferedReader br = new BufferedReader(reader, 8192)) {
-
-            StringBuilder stringBuilder = new StringBuilder();
-            String line;
-            while ((line = br.readLine()) != null) {
-                stringBuilder.append(line);
-            }
-            return stringBuilder.toString();
         }
     }
 

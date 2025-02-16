@@ -1,6 +1,7 @@
 package com.rouleatt.demo.crawler;
 
 import static com.rouleatt.demo.proxy.ProxyManager.PROXY_CONFIGS;
+import static com.rouleatt.demo.utils.CrawlerUtils.*;
 import static java.lang.Integer.MAX_VALUE;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -10,6 +11,7 @@ import com.rouleatt.demo.db.RestaurantIdGenerator;
 import com.rouleatt.demo.dto.Region;
 import com.rouleatt.demo.proxy.ProxyManager;
 import com.rouleatt.demo.proxy.ProxyManager.ProxyConfig;
+import com.rouleatt.demo.utils.CrawlerUtils;
 import com.rouleatt.demo.utils.EnvLoader;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -26,6 +28,17 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import javax.net.ssl.HttpsURLConnection;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.hc.client5.http.auth.AuthScope;
+import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
+import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.ParseException;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 
 @Slf4j
 public class RestaurantImageBatchCrawler {
@@ -62,6 +75,12 @@ public class RestaurantImageBatchCrawler {
                 double maxX = region.getMaxX();
                 double maxY = region.getMaxY();
 
+                try {
+                    Thread.sleep(5_000 + new Random().nextInt(5_000)); // 5초 ~ 10초 랜덤 슬립
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+
                 crawl(fullName, shortName, minX, minY, maxX, maxY);
             });
         }
@@ -96,7 +115,7 @@ public class RestaurantImageBatchCrawler {
                     URI uri = setUri(currentMinX, currentMinY, currentMaxX, currentMaxY);
                     String response = sendHttpRequest(uri);
 
-                    Thread.sleep(1000 + new Random().nextInt(4000)); // 1초 ~ 5초 랜덤 슬립
+                    Thread.sleep(1000);
 
                     JsonNode rootNode = mapper.readTree(response);
                     JsonNode resultNode = rootNode.path("result");
@@ -196,43 +215,41 @@ public class RestaurantImageBatchCrawler {
                 RI_TIME_CODE, "NIGHT"));
     }
 
-    private String sendHttpRequest(URI uri) throws IOException {
+    private String sendHttpRequest(URI uri) throws IOException, ParseException {
 
         ProxyConfig proxyConfig = ProxyManager.getNextProxyConfig();
-        Proxy proxy = proxyConfig.toProxy();
+        HttpHost proxy = new HttpHost(proxyConfig.ip, proxyConfig.port);
 
-        // 프록시 터널링 허용
-        System.setProperty("jdk.http.auth.tunneling.disabledSchemes", "");
-        // 프록시 인증을 전역적으로 설정
-        Authenticator.setDefault(new Authenticator() {
-            @Override
-            protected PasswordAuthentication getPasswordAuthentication() {
-                return new PasswordAuthentication(proxyConfig.username, proxyConfig.password.toCharArray());
+        // 프록시 인증 정보 설정
+        BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+        credentialsProvider.setCredentials(
+                new AuthScope(proxy),
+                new UsernamePasswordCredentials(
+                        proxyConfig.username,
+                        proxyConfig.password.toCharArray())
+        );
+
+        try (CloseableHttpClient httpClient = HttpClients.custom()
+                .setProxy(proxy)
+                .setDefaultCredentialsProvider(credentialsProvider)
+                .setConnectionManager(new PoolingHttpClientConnectionManager())
+                .build()) {
+
+            // 헤더 설정
+            HttpGet request = new HttpGet(uri);
+            request.addHeader(RI_REFERER_KEY, RI_REFERER_VALUE);
+            request.addHeader(USER_AGENT_KEY, getUserAgentValue());
+
+            // 5초 ~ 10초 랜덤 슬립
+            try {
+                Thread.sleep(5_000 + new Random().nextInt(5_000));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
-        });
 
-        URL url = uri.toURL();
-        HttpsURLConnection conn = (HttpsURLConnection) url.openConnection(proxy);
-
-        String auth = proxyConfig.username + ":" + proxyConfig.password;
-        String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes());
-        conn.setRequestProperty("Proxy-Authorization", "Basic " + encodedAuth);
-
-        conn.setRequestMethod("GET");
-        conn.setRequestProperty(RI_REFERER_KEY, RI_REFERER_VALUE);
-        conn.setConnectTimeout(5000);
-        conn.setReadTimeout(5000);
-        conn.setRequestProperty("Connection", "close");
-
-        try (BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
-            StringBuilder response = new StringBuilder();
-            String line;
-            while ((line = in.readLine()) != null) {
-                response.append(line);
+            try (CloseableHttpResponse response = httpClient.execute(request)) {
+                return EntityUtils.toString(response.getEntity());
             }
-            return response.toString();
-        } finally {
-            conn.disconnect();
         }
     }
 
