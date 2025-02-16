@@ -55,8 +55,7 @@ public class MenuReviewBatchCrawler {
     private static final Pattern MR_MENU_PATTERN = Pattern.compile(EnvLoader.get("MR_MENU_PATTERN"));
     private static final Pattern MR_REVIEW_PATTERN = Pattern.compile(EnvLoader.get("MR_REVIEW_PATTERN"));
     private static final Pattern MR_ROOT_QUERY_PATTERN = Pattern.compile(EnvLoader.get("MR_ROOT_QUERY_PATTERN"));
-    private static final String MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT = EnvLoader.get(
-            "MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT");
+    private static final String MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT = EnvLoader.get("MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT");
     private static final String MR_BIZ_HOUR_SECOND_DEPTH_KEY = EnvLoader.get("MR_BIZ_HOUR_SECOND_DEPTH_KEY");
     private static final String MR_BIZ_HOUR_THIRD_DEPTH_KEY = EnvLoader.get("MR_BIZ_HOUR_THIRD_DEPTH_KEY");
 
@@ -73,6 +72,9 @@ public class MenuReviewBatchCrawler {
         while (retryCount < MAX_VALUE && !success) {
 
             try {
+
+                log.info("[RI] 쓰레드 {} | 음식점 {}", Thread.currentThread().getName(), restaurantId);
+
                 URI uri = setUri(restaurantId);
                 String response = sendHttpRequest(uri, restaurantId);
 
@@ -196,6 +198,8 @@ public class MenuReviewBatchCrawler {
         ProxyConfig proxyConfig = ProxyManager.getNextProxyConfig();
         HttpHost proxy = new HttpHost(proxyConfig.ip, proxyConfig.port);
 
+        log.info("[MR] 쓰레드 {} | 프록시 {} 할당", Thread.currentThread().getName(), proxyConfig.ip);
+
         // 프록시 인증 정보 설정
         BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
         credentialsProvider.setCredentials(
@@ -217,9 +221,9 @@ public class MenuReviewBatchCrawler {
             request.addHeader(USER_AGENT_KEY, getUserAgentValue());
             request.addHeader(MR_ACCEPT_ENCODING_KEY, MR_ACCEPT_ENCODING_VALUE);
 
-            // 5초 ~ 10초 랜덤 슬립
+            // 2초 ~ 5초 랜덤 슬립
             try {
-                Thread.sleep(5_000 + new Random().nextInt(5_000));
+                Thread.sleep(2_000 + new Random().nextInt(3_000));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }

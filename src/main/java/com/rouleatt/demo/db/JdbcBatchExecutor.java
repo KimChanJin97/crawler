@@ -14,7 +14,9 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class JdbcBatchExecutor {
 
     private static final String JDBC_URL = EnvLoader.get("JDBC_URL");
@@ -208,6 +210,7 @@ public class JdbcBatchExecutor {
 
                 // 배치 실행이 끝나면 한번에 커밋
                 conn.commit();
+                log.info("쓰레드 {} 커밋 완료", Thread.currentThread().getName());
 
                 // 배치 후 리스트 비우기
                 RESTAURANT_BATCH.get().clear();

@@ -1,7 +1,8 @@
 package com.rouleatt.demo.crawler;
 
 import static com.rouleatt.demo.proxy.ProxyManager.PROXY_CONFIGS;
-import static com.rouleatt.demo.utils.CrawlerUtils.*;
+import static com.rouleatt.demo.utils.CrawlerUtils.USER_AGENT_KEY;
+import static com.rouleatt.demo.utils.CrawlerUtils.getUserAgentValue;
 import static java.lang.Integer.MAX_VALUE;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -11,22 +12,13 @@ import com.rouleatt.demo.db.RestaurantIdGenerator;
 import com.rouleatt.demo.dto.Region;
 import com.rouleatt.demo.proxy.ProxyManager;
 import com.rouleatt.demo.proxy.ProxyManager.ProxyConfig;
-import com.rouleatt.demo.utils.CrawlerUtils;
 import com.rouleatt.demo.utils.EnvLoader;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.Authenticator;
-import java.net.PasswordAuthentication;
-import java.net.Proxy;
 import java.net.URI;
-import java.net.URL;
-import java.util.Base64;
 import java.util.Random;
 import java.util.Stack;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import javax.net.ssl.HttpsURLConnection;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.auth.AuthScope;
 import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
@@ -75,8 +67,9 @@ public class RestaurantImageBatchCrawler {
                 double maxX = region.getMaxX();
                 double maxY = region.getMaxY();
 
+                // 2초 ~ 5초 랜덤 슬립
                 try {
-                    Thread.sleep(5_000 + new Random().nextInt(5_000)); // 5초 ~ 10초 랜덤 슬립
+                    Thread.sleep(2_000 + new Random().nextInt(3_000));
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
@@ -133,6 +126,8 @@ public class RestaurantImageBatchCrawler {
 
                                 int restaurantPk = RestaurantIdGenerator.getNextId();
                                 String restaurantId = restaurantNode.path("id").asText();
+
+                                log.info("[RI] 쓰레드 {} | 음식점 {}", Thread.currentThread().getName(), restaurantId);
 
                                 // 음식점 크롤링 및 배치
                                 jdbcBatchExecutor.addRestaurant(
@@ -220,6 +215,8 @@ public class RestaurantImageBatchCrawler {
         ProxyConfig proxyConfig = ProxyManager.getNextProxyConfig();
         HttpHost proxy = new HttpHost(proxyConfig.ip, proxyConfig.port);
 
+        log.info("[RI] 쓰레드 {} | 프록시 {} 할당", Thread.currentThread().getName(), proxyConfig.ip);
+
         // 프록시 인증 정보 설정
         BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
         credentialsProvider.setCredentials(
@@ -240,9 +237,9 @@ public class RestaurantImageBatchCrawler {
             request.addHeader(RI_REFERER_KEY, RI_REFERER_VALUE);
             request.addHeader(USER_AGENT_KEY, getUserAgentValue());
 
-            // 5초 ~ 10초 랜덤 슬립
+            // 2초 ~ 5초 랜덤 슬립
             try {
-                Thread.sleep(5_000 + new Random().nextInt(5_000));
+                Thread.sleep(2_000 + new Random().nextInt(3_000));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
