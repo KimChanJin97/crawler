@@ -1,8 +1,6 @@
 package com.rouleatt.demo.crawler;
 
-import static com.rouleatt.demo.utils.CrawlerUtils.USER_AGENT_KEY;
 import static com.rouleatt.demo.utils.CrawlerUtils.decodeUnicode;
-import static com.rouleatt.demo.utils.CrawlerUtils.getUserAgentValue;
 import static java.lang.Integer.MAX_VALUE;
 import static org.apache.commons.text.StringEscapeUtils.unescapeHtml4;
 import static org.apache.commons.text.StringEscapeUtils.unescapeJava;
@@ -13,25 +11,20 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rouleatt.demo.db.JdbcBatchExecutor;
 import com.rouleatt.demo.db.MenuIdGenerator;
 import com.rouleatt.demo.db.ReviewIdGenerator;
-import com.rouleatt.demo.proxy.ProxyManager;
-import com.rouleatt.demo.proxy.ProxyManager.ProxyConfig;
 import com.rouleatt.demo.utils.EnvLoader;
 import java.io.IOException;
 import java.net.URI;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Random;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.hc.client5.http.auth.AuthScope;
-import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
-import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
-import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.jsoup.Jsoup;
@@ -42,14 +35,12 @@ public class MenuReviewBatchCrawler {
 
     private final JdbcBatchExecutor jdbcBatchExecutor;
     private final ObjectMapper objectMapper;
-
+    // uri
     private static final String MR_URI_FORMAT = EnvLoader.get("MR_URI_FORMAT");
+    // header
     private static final String MR_REFERER_KEY = EnvLoader.get("MR_REFERER_KEY");
     private static final String MR_REFERER_VALUE_FORMAT = EnvLoader.get("MR_REFERER_VALUE_FORMAT");
-
-    private static final String MR_ACCEPT_ENCODING_KEY = EnvLoader.get("MR_ACCEPT_ENCODING_KEY");
-    private static final String MR_ACCEPT_ENCODING_VALUE = EnvLoader.get("MR_ACCEPT_ENCODING_VALUE");
-
+    // parsing
     private static final String MR_LOWER_BOUND = EnvLoader.get("MR_LOWER_BOUND").replace("\"", "");
     private static final String MR_UPPER_BOUND = EnvLoader.get("MR_UPPER_BOUND").replace("\"", "");
     private static final Pattern MR_MENU_PATTERN = Pattern.compile(EnvLoader.get("MR_MENU_PATTERN"));
@@ -175,7 +166,7 @@ public class MenuReviewBatchCrawler {
             // 크롤링 실패시 일정시간 슬립 후 재시도
             if (!success) {
                 try {
-                    Thread.sleep(60_000 * retryCount);
+                    Thread.sleep(2_000 * retryCount);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                 }
@@ -188,38 +179,16 @@ public class MenuReviewBatchCrawler {
     }
 
     private URI setUri(String restaurantId) {
-        return URI.create(String.format(MR_URI_FORMAT, restaurantId));
+        return URI.create(String.format(MR_URI_FORMAT, restaurantId, now()));
     }
 
     private String sendHttpRequest(URI uri, String restaurantId) throws IOException, ParseException {
-
-        ProxyConfig proxyConfig = ProxyManager.getNextProxyConfig();
-        HttpHost proxy = new HttpHost(proxyConfig.ip, proxyConfig.port);
-
-        // 프록시 인증 정보 설정
-        BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-        credentialsProvider.setCredentials(
-                new AuthScope(proxy),
-                new UsernamePasswordCredentials(
-                        proxyConfig.username,
-                        proxyConfig.password.toCharArray())
-        );
-
-        try (CloseableHttpClient httpClient = HttpClients.custom()
-                .setProxy(proxy)
-                .setDefaultCredentialsProvider(credentialsProvider)
-                .setConnectionManager(new PoolingHttpClientConnectionManager())
-                .build()) {
-
-            // 헤더 설정
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpGet request = new HttpGet(uri);
             request.addHeader(MR_REFERER_KEY, String.format(MR_REFERER_VALUE_FORMAT, restaurantId));
-            request.addHeader(USER_AGENT_KEY, getUserAgentValue());
-            request.addHeader(MR_ACCEPT_ENCODING_KEY, MR_ACCEPT_ENCODING_VALUE);
 
-            // 5초 ~ 10초 랜덤 슬립
             try {
-                Thread.sleep(5_000 + new Random().nextInt(5_000));
+                Thread.sleep(2_000 + new Random().nextInt(3_000)); // 2초 ~ 5초 랜덤 슬립
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -249,5 +218,11 @@ public class MenuReviewBatchCrawler {
             return input.substring(0, input.indexOf("(")).trim();
         }
         return input;
+    }
+
+    private String now() {
+        LocalDateTime now = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmm");
+        return now.format(formatter);
     }
 }

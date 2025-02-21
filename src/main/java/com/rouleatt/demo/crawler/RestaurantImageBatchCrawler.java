@@ -1,8 +1,5 @@
 package com.rouleatt.demo.crawler;
 
-import static com.rouleatt.demo.proxy.ProxyManager.PROXY_CONFIGS;
-import static com.rouleatt.demo.utils.CrawlerUtils.USER_AGENT_KEY;
-import static com.rouleatt.demo.utils.CrawlerUtils.getUserAgentValue;
 import static java.lang.Integer.MAX_VALUE;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -10,25 +7,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rouleatt.demo.db.JdbcBatchExecutor;
 import com.rouleatt.demo.db.RestaurantIdGenerator;
 import com.rouleatt.demo.dto.Region;
-import com.rouleatt.demo.proxy.ProxyManager;
-import com.rouleatt.demo.proxy.ProxyManager.ProxyConfig;
 import com.rouleatt.demo.utils.EnvLoader;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Random;
 import java.util.Stack;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.hc.client5.http.auth.AuthScope;
-import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
-import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
-import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 
@@ -38,46 +26,46 @@ public class RestaurantImageBatchCrawler {
     private final ObjectMapper mapper;
     private final JdbcBatchExecutor jdbcBatchExecutor;
     private final MenuReviewBatchCrawler menuReviewCrawler;
-    private final ExecutorService executorService;
 
-    private final static String RI_URI = EnvLoader.get("RI_URI");
+    // uri
+    private final static String RI_URI_FORMAT = EnvLoader.get("RI_URI_FORMAT");
+    // query param: searchCoord
     private final static String RI_SEARCH_COORD_KEY = EnvLoader.get("RI_SEARCH_COORD_KEY");
+    // query param: boundary
     private final static String RI_BOUNDARY_KEY = EnvLoader.get("RI_BOUNDARY_KEY");
-    private final static String RI_REFERER_KEY = EnvLoader.get("RI_REFERER_KEY");
-    private final static String RI_REFERER_VALUE = EnvLoader.get("RI_REFERER_VALUE");
+    // query param: code
+    private final static String RI_CODE_KEY = EnvLoader.get("RI_CODE_KEY");
+    private final static String RI_CODE_VALUE = EnvLoader.get("RI_CODE_VALUE");
+    // query param: limit
     private final static String RI_LIMIT_KEY = EnvLoader.get("RI_LIMIT_KEY");
     private final static String RI_LIMIT_VALUE = EnvLoader.get("RI_LIMIT_VALUE");
-    private final static String RI_TIME_CODE = EnvLoader.get("RI_TIME_CODE_KEY");
+    // query param: timeCode
+    private final static String RI_TIME_CODE_KEY = EnvLoader.get("RI_TIME_CODE_KEY");
+    // query param: sortType
+    private final static String RI_SORT_TYPE_KEY = EnvLoader.get("RI_SORT_TYPE_KEY");
+    private final static String RI_SORT_TYPE_VALUE = EnvLoader.get("RI_SORT_TYPE_VALUE");
+    // header
+    private final static String RI_REFERER_KEY = EnvLoader.get("RI_REFERER_KEY");
+    private final static String RI_REFERER_VALUE = EnvLoader.get("RI_REFERER_VALUE");
 
     public RestaurantImageBatchCrawler() {
         this.mapper = new ObjectMapper();
         this.jdbcBatchExecutor = new JdbcBatchExecutor();
         this.menuReviewCrawler = new MenuReviewBatchCrawler();
-        this.executorService = Executors.newFixedThreadPool(PROXY_CONFIGS.size());
     }
 
     public void crawlAll() {
         for (Region region : Region.values()) {
 
-            executorService.submit(() -> {
-                String fullName = region.getFullName();
-                String shortName = region.getShortName();
-                double minX = region.getMinX();
-                double minY = region.getMinY();
-                double maxX = region.getMaxX();
-                double maxY = region.getMaxY();
+            String fullName = region.getFullName();
+            String shortName = region.getShortName();
+            double minX = region.getMinX();
+            double minY = region.getMinY();
+            double maxX = region.getMaxX();
+            double maxY = region.getMaxY();
 
-                // 5초 ~ 10초 랜덤 슬립
-                try {
-                    Thread.sleep(5_000 + new Random().nextInt(5_000));
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-
-                crawl(fullName, shortName, minX, minY, maxX, maxY);
-            });
+            crawl(fullName, shortName, minX, minY, maxX, maxY);
         }
-        executorService.shutdown();
     }
 
     private void crawl(
@@ -178,7 +166,7 @@ public class RestaurantImageBatchCrawler {
                 // 크롤링 실패시 일정시간 슬립 후 재시도
                 if (!success) {
                     try {
-                        Thread.sleep(60_000 * retryCount);
+                        Thread.sleep(2_000 * retryCount);
                     } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();
                     }
@@ -196,46 +184,27 @@ public class RestaurantImageBatchCrawler {
         double midY = (minY + maxY) / 2;
 
         return URI.create(String.format(
-                "%s?%s=%f;%f&%s=%f;%f;%f;%f&%s=%s&%s=%s&%s=%s&%s=%s&%s=%s&%s=%s",
-                RI_URI,
+                RI_URI_FORMAT,
                 RI_SEARCH_COORD_KEY, midX, midY,
                 RI_BOUNDARY_KEY, minX, minY, maxX, maxY,
+                RI_CODE_KEY, RI_CODE_VALUE,
                 RI_LIMIT_KEY, RI_LIMIT_VALUE,
-                RI_TIME_CODE, "MORNING",
-                RI_TIME_CODE, "LUNCH",
-                RI_TIME_CODE, "AFTERNOON",
-                RI_TIME_CODE, "EVENING",
-                RI_TIME_CODE, "NIGHT"));
+                RI_SORT_TYPE_KEY, RI_SORT_TYPE_VALUE,
+                RI_TIME_CODE_KEY, "MORNING",
+                RI_TIME_CODE_KEY, "LUNCH",
+                RI_TIME_CODE_KEY, "AFTERNOON",
+                RI_TIME_CODE_KEY, "EVENING",
+                RI_TIME_CODE_KEY, "NIGHT"));
     }
 
     private String sendHttpRequest(URI uri) throws IOException, ParseException {
 
-        ProxyConfig proxyConfig = ProxyManager.getNextProxyConfig();
-        HttpHost proxy = new HttpHost(proxyConfig.ip, proxyConfig.port);
-
-        // 프록시 인증 정보 설정
-        BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-        credentialsProvider.setCredentials(
-                new AuthScope(proxy),
-                new UsernamePasswordCredentials(
-                        proxyConfig.username,
-                        proxyConfig.password.toCharArray())
-        );
-
-        try (CloseableHttpClient httpClient = HttpClients.custom()
-                .setProxy(proxy)
-                .setDefaultCredentialsProvider(credentialsProvider)
-                .setConnectionManager(new PoolingHttpClientConnectionManager())
-                .build()) {
-
-            // 헤더 설정
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpGet request = new HttpGet(uri);
             request.addHeader(RI_REFERER_KEY, RI_REFERER_VALUE);
-            request.addHeader(USER_AGENT_KEY, getUserAgentValue());
 
-            // 5초 ~ 10초 랜덤 슬립
             try {
-                Thread.sleep(5_000 + new Random().nextInt(5_000));
+                Thread.sleep(2_000 + new Random().nextInt(3_000)); // 2초 ~ 5초 랜덤 슬립
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
