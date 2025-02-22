@@ -1,4 +1,4 @@
-package com.rouleatt.demo.dto;
+package com.rouleatt.demo.utils;
 
 public enum Region {
     SEOUL("seoul", "서울특별시", "서울", 126.734086, 37.413294, 127.269311, 37.715133),

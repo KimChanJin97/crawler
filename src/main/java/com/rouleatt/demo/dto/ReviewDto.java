@@ -2,7 +2,7 @@ package com.rouleatt.demo.dto;
 
 public record ReviewDto(
         int reviewPk,
-        int restaurantPk,
+        int restaurantFk,
         String name,
         String type,
         String url,
@@ -15,7 +15,7 @@ public record ReviewDto(
 ) {
     public static ReviewDto of(
             int reviewPk,
-            int restaurantPk,
+            int restaurantFk,
             String name,
             String type,
             String url,
@@ -27,7 +27,7 @@ public record ReviewDto(
             String createdAt) {
         return new ReviewDto(
                 reviewPk,
-                restaurantPk,
+                restaurantFk,
                 name,
                 type,
                 url,

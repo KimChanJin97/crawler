@@ -6,10 +6,16 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rouleatt.demo.db.JdbcBatchExecutor;
 import com.rouleatt.demo.db.RestaurantIdGenerator;
-import com.rouleatt.demo.utils.Region;
+import com.rouleatt.demo.dto.RestaurantDto;
+import com.rouleatt.demo.dto.RestaurantImageDto;
 import com.rouleatt.demo.utils.EnvLoader;
+import com.rouleatt.demo.utils.Region;
+import com.rouleatt.demo.writer.RestaurantImageWriter;
+import com.rouleatt.demo.writer.RestaurantWriter;
 import java.io.IOException;
 import java.net.URI;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.Stack;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
@@ -20,11 +26,12 @@ import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 
 @Slf4j
-public class RestaurantImageBatchCrawler {
+public class RestaurantImageCrawler {
 
     private final ObjectMapper mapper;
-    private final JdbcBatchExecutor jdbcBatchExecutor;
-    private final MenuReviewBatchCrawler menuReviewCrawler;
+    private final RestaurantWriter restaurantWriter;
+    private final RestaurantImageWriter restaurantImageWriter;
+    private final MenuReviewCrawler menuReviewCrawler;
 
     // uri
     private final static String RI_URI_FORMAT = EnvLoader.get("RI_URI_FORMAT");
@@ -47,10 +54,11 @@ public class RestaurantImageBatchCrawler {
     private final static String RI_REFERER_KEY = EnvLoader.get("RI_REFERER_KEY");
     private final static String RI_REFERER_VALUE = EnvLoader.get("RI_REFERER_VALUE");
 
-    public RestaurantImageBatchCrawler() {
+    public RestaurantImageCrawler() {
         this.mapper = new ObjectMapper();
-        this.jdbcBatchExecutor = new JdbcBatchExecutor();
-        this.menuReviewCrawler = new MenuReviewBatchCrawler();
+        this.restaurantWriter = new RestaurantWriter();
+        this.restaurantImageWriter = new RestaurantImageWriter();
+        this.menuReviewCrawler = new MenuReviewCrawler();
     }
 
     public void crawlAll() {
@@ -106,6 +114,9 @@ public class RestaurantImageBatchCrawler {
                     // 크롤링한 음식점이 100개 미만이라면
                     if (countNode.asInt() < 100) {
 
+                        Set<RestaurantDto> restaurantDtos = new LinkedHashSet<>();
+                        Set<RestaurantImageDto> restaurantImageDtos = new LinkedHashSet<>();
+
                         for (JsonNode restaurantNode : restaurantsNode) {
 
                             // 타겟팅한 행정구역이라면
@@ -115,27 +126,26 @@ public class RestaurantImageBatchCrawler {
                                 String restaurantId = restaurantNode.path("id").asText();
 
                                 // 음식점 크롤링 및 배치
-                                jdbcBatchExecutor.addRestaurant(
-                                        restaurantPk,
+                                restaurantDtos.add(RestaurantDto.of(restaurantPk,
                                         restaurantNode.path("name").asText(), // cant be null
                                         Double.parseDouble(restaurantNode.path("x").asText()), // cant be null
                                         Double.parseDouble(restaurantNode.path("y").asText()), // cant be null
                                         checkNull(restaurantNode.path("categoryName").asText()),
                                         checkNull(restaurantNode.path("address").asText()),
-                                        checkNull(restaurantNode.path("roadAddress").asText()));
+                                        checkNull(restaurantNode.path("roadAddress").asText())));
+                                restaurantWriter.write(restaurantDtos);
 
                                 // 음식점 이미지 크롤링 및 배치
                                 for (JsonNode imageNode : restaurantNode.path("images")) {
-                                    jdbcBatchExecutor.addRestaurantImage(restaurantPk, imageNode.asText());
+                                    restaurantImageDtos.add(RestaurantImageDto.of(
+                                            restaurantPk,
+                                            imageNode.asText()));
+                                    restaurantImageWriter.write(restaurantImageDtos);
                                 }
+
                                 // 메뉴, 메뉴 이미지, 리뷰, 리뷰 이미지 영업시간 크롤링 및 배치
                                 menuReviewCrawler.crawl(restaurantPk, restaurantId);
                             }
-                        }
-
-                        // 100개 미만의 음식점 나왔더라도 타겟팅한 행정구역이 아닌 경우 방지
-                        if (jdbcBatchExecutor.shouldBatchInsert()) {
-                            jdbcBatchExecutor.batchInsert();
                         }
                     }
                     // 크롤링한 음식점이 100개 이상이라면 영역을 쪼개기 위해 스택 푸시

@@ -11,14 +11,26 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rouleatt.demo.db.JdbcBatchExecutor;
 import com.rouleatt.demo.db.MenuIdGenerator;
 import com.rouleatt.demo.db.ReviewIdGenerator;
+import com.rouleatt.demo.dto.BizHourDto;
+import com.rouleatt.demo.dto.MenuDto;
+import com.rouleatt.demo.dto.MenuImageDto;
+import com.rouleatt.demo.dto.ReviewDto;
+import com.rouleatt.demo.dto.ReviewImageDto;
 import com.rouleatt.demo.utils.EnvLoader;
+import com.rouleatt.demo.writer.BizHourWriter;
+import com.rouleatt.demo.writer.MenuImageWriter;
+import com.rouleatt.demo.writer.MenuWriter;
+import com.rouleatt.demo.writer.ReviewImageWriter;
+import com.rouleatt.demo.writer.ReviewWriter;
 import java.io.IOException;
 import java.net.URI;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Map.Entry;
-import java.util.Random;
+import java.util.Set;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
@@ -31,10 +43,14 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
 @Slf4j
-public class MenuReviewBatchCrawler {
+public class MenuReviewCrawler {
 
-    private final JdbcBatchExecutor jdbcBatchExecutor;
     private final ObjectMapper objectMapper;
+    private final MenuWriter menuWriter;
+    private final MenuImageWriter menuImageWriter;
+    private final ReviewWriter reviewWriter;
+    private final ReviewImageWriter reviewImageWriter;
+    private final BizHourWriter bizHourWriter;
     // uri
     private static final String MR_URI_FORMAT = EnvLoader.get("MR_URI_FORMAT");
     // header
@@ -50,9 +66,13 @@ public class MenuReviewBatchCrawler {
     private static final String MR_BIZ_HOUR_SECOND_DEPTH_KEY = EnvLoader.get("MR_BIZ_HOUR_SECOND_DEPTH_KEY");
     private static final String MR_BIZ_HOUR_THIRD_DEPTH_KEY = EnvLoader.get("MR_BIZ_HOUR_THIRD_DEPTH_KEY");
 
-    public MenuReviewBatchCrawler() {
-        this.jdbcBatchExecutor = new JdbcBatchExecutor();
+    public MenuReviewCrawler() {
         this.objectMapper = new ObjectMapper();
+        this.menuWriter = new MenuWriter();
+        this.menuImageWriter = new MenuImageWriter();
+        this.reviewWriter = new ReviewWriter();
+        this.reviewImageWriter = new ReviewImageWriter();
+        this.bizHourWriter = new BizHourWriter();
     }
 
     public void crawl(int restaurantPk, String restaurantId) {
@@ -85,28 +105,36 @@ public class MenuReviewBatchCrawler {
                     JsonNode value = entry.getValue();
 
                     // 메뉴, 메뉴 이미지 배치
+                    Set<MenuDto> menuDtos = new LinkedHashSet<>();
+                    Set<MenuImageDto> menuImageDtos = new LinkedHashSet<>();
+
                     if (MR_MENU_PATTERN.matcher(key).matches()) {
                         int menuPk = MenuIdGenerator.getNextId();
-                        jdbcBatchExecutor.addMenu(
+                        menuDtos.add(MenuDto.of(
                                 menuPk,
                                 restaurantPk,
                                 checkNull(decode(value.path("name").asText())),
                                 checkNull((value.path("price").asText())),
                                 value.path("recommend").asBoolean(),
                                 checkNull(decode(value.path("description").asText())),
-                                value.path("index").asInt()
-                        );
+                                value.path("index").asInt()));
+                        menuWriter.write(menuDtos);
 
                         for (JsonNode image : value.path("images")) {
-                            jdbcBatchExecutor.addMenuImage(menuPk, decode(image.asText()));
+                            menuImageDtos.add(MenuImageDto.of(
+                                    menuPk,
+                                    decode(image.asText())));
+                            menuImageWriter.write(menuImageDtos);
                         }
                     }
 
                     // 리뷰, 리뷰 이미지 배치
+                    Set<ReviewDto> reviewDtos = new LinkedHashSet<>();
+                    Set<ReviewImageDto> reviewImageDtos = new LinkedHashSet<>();
+
                     if (MR_REVIEW_PATTERN.matcher(key).matches()) {
                         int reviewPk = ReviewIdGenerator.getNextId();
-
-                        jdbcBatchExecutor.addReview(
+                        reviewDtos.add(ReviewDto.of(
                                 reviewPk,
                                 restaurantPk,
                                 checkNull(decode(value.path("name").asText())),
@@ -117,15 +145,20 @@ public class MenuReviewBatchCrawler {
                                 checkNull(decode(value.path("contents").asText())),
                                 checkNull(decode(value.path("profileImageUrl").asText())),
                                 checkNull(decode(value.path("authorName").asText())),
-                                checkNull(value.path("date").asText())
-                        );
+                                checkNull(value.path("date").asText())));
+                        reviewWriter.write(reviewDtos);
 
                         for (JsonNode thumbnailUrl : value.path("thumbnailUrlList")) {
-                            jdbcBatchExecutor.addReviewImage(reviewPk, checkNull(decode(thumbnailUrl.asText())));
+                            reviewImageDtos.add(ReviewImageDto.of(
+                                    reviewPk,
+                                    checkNull(decode(thumbnailUrl.asText()))));
+                            reviewImageWriter.write(reviewImageDtos);
                         }
                     }
 
-                    // 영업시간, 브레이크타임, 라스트오더 배치
+                    // 영업시간 배치
+                    Set<BizHourDto> bizHourDtos = new LinkedHashSet<>();
+
                     if (MR_ROOT_QUERY_PATTERN.matcher(key).matches()) {
                         JsonNode businessHours = value
                                 .path(String.format(MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT, restaurantId))
@@ -133,16 +166,15 @@ public class MenuReviewBatchCrawler {
                                 .path(MR_BIZ_HOUR_THIRD_DEPTH_KEY);
 
                         for (JsonNode businessHour : businessHours) {
-
-                            jdbcBatchExecutor.addBizHour(
+                            bizHourDtos.add(BizHourDto.of(
                                     restaurantPk,
                                     checkDay(checkNull(businessHour.path("day").asText())),
                                     checkNull(businessHour.path("businessHours").path("start").asText()),
                                     checkNull(businessHour.path("businessHours").path("end").asText()),
                                     checkNull(businessHour.path("breakHours").path(0).path("start").asText()),
                                     checkNull(businessHour.path("breakHours").path(0).path("end").asText()),
-                                    checkNull(businessHour.path("lastOrderTimes").path(0).path("time").asText())
-                            );
+                                    checkNull(businessHour.path("lastOrderTimes").path(0).path("time").asText())));
+                            bizHourWriter.write(bizHourDtos);
                         }
                     }
                 }

@@ -54,7 +54,7 @@ public class TableInitializer {
                 + "FOREIGN KEY (menu_id) REFERENCES menu(id) ON DELETE CASCADE"
                 + ");";
 
-        String reviewTableSql = "CREATE TABLE IF NOT EXISTS review ("
+        String createReviewTableSql = "CREATE TABLE IF NOT EXISTS review ("
                 + "id INT NOT NULL PRIMARY KEY, " // 배치를 위해 AUTO_INCREMENT 제거
                 + "restaurant_id INT NOT NULL, "
                 + "name VARCHAR(100), "
@@ -101,7 +101,7 @@ public class TableInitializer {
             stmt.execute(createMenuTableSql);
             stmt.execute(createMenuImageTableSql);
 
-            stmt.execute(reviewTableSql);
+            stmt.execute(createReviewTableSql);
             stmt.execute(reviewImageTableSql);
 
             stmt.execute(createBusinessHourTableSql);
