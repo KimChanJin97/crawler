@@ -1,6 +1,6 @@
 package com.rouleatt.demo.crawler;
 
-import static com.rouleatt.demo.utils.CrawlerUtils.decodeUnicode;
+import static com.rouleatt.demo.utils.CrawlerUtils.*;
 import static java.lang.Integer.MAX_VALUE;
 import static org.apache.commons.text.StringEscapeUtils.unescapeHtml4;
 import static org.apache.commons.text.StringEscapeUtils.unescapeJava;
@@ -11,15 +11,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rouleatt.demo.db.JdbcBatchExecutor;
 import com.rouleatt.demo.db.MenuIdGenerator;
 import com.rouleatt.demo.db.ReviewIdGenerator;
-import com.rouleatt.demo.utils.EnvLoader;
 import java.io.IOException;
 import java.net.URI;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
 import java.util.Map.Entry;
-import java.util.Random;
-import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
@@ -35,20 +32,6 @@ public class MenuReviewBatchCrawler {
 
     private final JdbcBatchExecutor jdbcBatchExecutor;
     private final ObjectMapper objectMapper;
-    // uri
-    private static final String MR_URI_FORMAT = EnvLoader.get("MR_URI_FORMAT");
-    // header
-    private static final String MR_REFERER_KEY = EnvLoader.get("MR_REFERER_KEY");
-    private static final String MR_REFERER_VALUE_FORMAT = EnvLoader.get("MR_REFERER_VALUE_FORMAT");
-    // parsing
-    private static final String MR_LOWER_BOUND = EnvLoader.get("MR_LOWER_BOUND").replace("\"", "");
-    private static final String MR_UPPER_BOUND = EnvLoader.get("MR_UPPER_BOUND").replace("\"", "");
-    private static final Pattern MR_MENU_PATTERN = Pattern.compile(EnvLoader.get("MR_MENU_PATTERN"));
-    private static final Pattern MR_REVIEW_PATTERN = Pattern.compile(EnvLoader.get("MR_REVIEW_PATTERN"));
-    private static final Pattern MR_ROOT_QUERY_PATTERN = Pattern.compile(EnvLoader.get("MR_ROOT_QUERY_PATTERN"));
-    private static final String MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT = EnvLoader.get("MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT");
-    private static final String MR_BIZ_HOUR_SECOND_DEPTH_KEY = EnvLoader.get("MR_BIZ_HOUR_SECOND_DEPTH_KEY");
-    private static final String MR_BIZ_HOUR_THIRD_DEPTH_KEY = EnvLoader.get("MR_BIZ_HOUR_THIRD_DEPTH_KEY");
 
     public MenuReviewBatchCrawler() {
         this.jdbcBatchExecutor = new JdbcBatchExecutor();
@@ -178,13 +161,30 @@ public class MenuReviewBatchCrawler {
     }
 
     private URI setUri(String restaurantId) {
-        return URI.create(String.format(MR_URI_FORMAT, restaurantId, now()));
+        return URI.create(String.format(MR_URI, restaurantId, now()));
     }
 
     private String sendHttpRequest(URI uri, String restaurantId) throws IOException, ParseException {
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpGet request = new HttpGet(uri);
-            request.addHeader(MR_REFERER_KEY, String.format(MR_REFERER_VALUE_FORMAT, restaurantId));
+            request.addHeader(MR_AUTHORITY_KEY, MR_AUTHORITY_VALUE);
+            request.addHeader(MR_METHOD_KEY, MR_METHOD_VALUE);
+            request.addHeader(MR_PATH_KEY, uri.toString().split("com")[1]);
+            request.addHeader(MR_SCHEME_KEY, MR_SCHEME_VALUE);
+            request.addHeader(MR_ACCEPT_KEY, MR_ACCEPT_VALUE);
+            request.addHeader(MR_ACCEPT_ENCODING_KEY, MR_ACCEPT_ENCODING_VALUE);
+            request.addHeader(MR_ACCEPT_LANGUAGE_KEY, MR_ACCEPT_LANGUAGE_VALUE);
+            request.addHeader(MR_PRIORITY_KEY, MR_PRIORITY_VALUE);
+            request.addHeader(MR_REFERER_KEY, String.format(MR_REFERER_VALUE, restaurantId));
+            request.addHeader(MR_SEC_CH_UA_KEY, MR_SEC_CH_UA_VALUE);
+            request.addHeader(MR_SEC_CH_UA_MOBILE_KEY, MR_SEC_CH_UA_MOBILE_VALUE);
+            request.addHeader(MR_SEC_CH_UA_PLATFORM_KEY, MR_SEC_CH_UA_PLATFORM_VALUE);
+            request.addHeader(MR_SEC_FETCH_DEST_KEY, MR_SEC_FETCH_DEST_VALUE);
+            request.addHeader(MR_SEC_FETCH_MODE_KEY, MR_SEC_FETCH_MODE_VALUE);
+            request.addHeader(MR_SEC_FETCH_SITE_KEY, MR_SEC_FETCH_SITE_VALUE);
+            request.addHeader(MR_SEC_FETCH_USER_KEY, MR_SEC_FETCH_USER_VALUE);
+            request.addHeader(MR_UPGRADE_INSECURE_REQUESTS_KEY, MR_UPGRADE_INSECURE_REQUESTS_VALUE);
+            request.addHeader(MR_USER_AGENT_KEY, MR_USER_AGENT_VALUE);
 
             try {
                 Thread.sleep(1_000);

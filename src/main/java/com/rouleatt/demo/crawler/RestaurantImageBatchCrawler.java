@@ -1,5 +1,6 @@
 package com.rouleatt.demo.crawler;
 
+import static com.rouleatt.demo.utils.CrawlerUtils.*;
 import static java.lang.Integer.MAX_VALUE;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -7,7 +8,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rouleatt.demo.db.JdbcBatchExecutor;
 import com.rouleatt.demo.db.RestaurantIdGenerator;
 import com.rouleatt.demo.utils.Region;
-import com.rouleatt.demo.utils.EnvLoader;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Stack;
@@ -19,33 +19,13 @@ import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 
+
 @Slf4j
 public class RestaurantImageBatchCrawler {
 
     private final ObjectMapper mapper;
     private final JdbcBatchExecutor jdbcBatchExecutor;
     private final MenuReviewBatchCrawler menuReviewCrawler;
-
-    // uri
-    private final static String RI_URI_FORMAT = EnvLoader.get("RI_URI_FORMAT");
-    // query param: searchCoord
-    private final static String RI_SEARCH_COORD_KEY = EnvLoader.get("RI_SEARCH_COORD_KEY");
-    // query param: boundary
-    private final static String RI_BOUNDARY_KEY = EnvLoader.get("RI_BOUNDARY_KEY");
-    // query param: code
-    private final static String RI_CODE_KEY = EnvLoader.get("RI_CODE_KEY");
-    private final static String RI_CODE_VALUE = EnvLoader.get("RI_CODE_VALUE");
-    // query param: limit
-    private final static String RI_LIMIT_KEY = EnvLoader.get("RI_LIMIT_KEY");
-    private final static String RI_LIMIT_VALUE = EnvLoader.get("RI_LIMIT_VALUE");
-    // query param: timeCode
-    private final static String RI_TIME_CODE_KEY = EnvLoader.get("RI_TIME_CODE_KEY");
-    // query param: sortType
-    private final static String RI_SORT_TYPE_KEY = EnvLoader.get("RI_SORT_TYPE_KEY");
-    private final static String RI_SORT_TYPE_VALUE = EnvLoader.get("RI_SORT_TYPE_VALUE");
-    // header
-    private final static String RI_REFERER_KEY = EnvLoader.get("RI_REFERER_KEY");
-    private final static String RI_REFERER_VALUE = EnvLoader.get("RI_REFERER_VALUE");
 
     public RestaurantImageBatchCrawler() {
         this.mapper = new ObjectMapper();
@@ -129,6 +109,8 @@ public class RestaurantImageBatchCrawler {
                                 for (JsonNode imageNode : restaurantNode.path("images")) {
                                     jdbcBatchExecutor.addRestaurantImage(restaurantPk, imageNode.asText());
                                 }
+
+                                menuReviewCrawler.crawl(restaurantPk, restaurantId);
                             }
                         }
 
@@ -182,7 +164,7 @@ public class RestaurantImageBatchCrawler {
         double midY = (minY + maxY) / 2;
 
         return URI.create(String.format(
-                RI_URI_FORMAT,
+                RI_URI,
                 RI_SEARCH_COORD_KEY, midX, midY,
                 RI_BOUNDARY_KEY, minX, minY, maxX, maxY,
                 RI_CODE_KEY, RI_CODE_VALUE,
@@ -199,10 +181,28 @@ public class RestaurantImageBatchCrawler {
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpGet request = new HttpGet(uri);
+            request.addHeader(RI_AUTHORITY_KEY, RI_AUTHORITY_VALUE);
+            request.addHeader(RI_METHOD_KEY, RI_METHOD_VALUE);
+            request.addHeader(RI_PATH_KEY, uri.toString().split(".com")[1]);
+            request.addHeader(RI_SCHEME_KEY, RI_SCHEME_VALUE);
+            request.addHeader(RI_ACCEPT_KEY, RI_ACCEPT_VALUE);
+            request.addHeader(RI_ACCEPT_ENCODING_KEY, RI_ACCEPT_ENCODING_VALUE);
+            request.addHeader(RI_ACCEPT_LANGUAGE_KEY, RI_ACCEPT_LANGUAGE_VALUE);
+            request.addHeader(RI_CACHE_CONTROL_KEY, RI_CACHE_CONTROL_VALUE);
+            request.addHeader(RI_EXPIRES_KEY, RI_EXPIRES_VALUE);
+            request.addHeader(RI_PRAGMA_KEY, RI_PRAGMA_VALUE);
+            request.addHeader(RI_PRIORITY_KEY, RI_PRIORITY_VALUE);
             request.addHeader(RI_REFERER_KEY, RI_REFERER_VALUE);
+            request.addHeader(RI_SEC_CH_UA_KEY, RI_SEC_CH_UA_VALUE);
+            request.addHeader(RI_SEC_CH_UA_MOBILE_KEY, RI_SEC_CH_UA_MOBILE_VALUE);
+            request.addHeader(RI_SEC_CH_UA_PLATFORM_KEY, RI_SEC_CH_UA_PLATFORM_VALUE);
+            request.addHeader(RI_SEC_FETCH_DEST_KEY, RI_SEC_FETCH_DEST_VALUE);
+            request.addHeader(RI_SEC_FETCH_MODE_KEY, RI_SEC_FETCH_MODE_VALUE);
+            request.addHeader(RI_SEC_FETCH_SITE_KEY, RI_SEC_FETCH_SITE_VALUE);
+            request.addHeader(RI_USER_AGENT_KEY, RI_USER_AGENT_VALUE);
 
             try {
-                Thread.sleep(1_000); // 2초 ~ 5초 랜덤 슬립
+                Thread.sleep(1_000);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
