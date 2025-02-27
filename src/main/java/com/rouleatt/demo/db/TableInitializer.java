@@ -14,13 +14,14 @@ public class TableInitializer {
     public void init() {
 
         String[] dropAndCreateDatabaseSqls = {
-                "DROP DATABASE IF EXISTS rouleatt;",
-                "CREATE DATABASE rouleatt;",
-                "USE rouleatt;"
+                "DROP DATABASE IF EXISTS test;",
+                "CREATE DATABASE test;",
+                "USE test;"
         };
 
         String createRestaurantTableSql = "CREATE TABLE IF NOT EXISTS restaurant ("
                 + "id INT NOT NULL PRIMARY KEY, " // 배치를 위해 AUTO_INCREMENT 제거
+                + "rid VARCHAR(25) NOT NULL, "
                 + "name VARCHAR(50) NOT NULL, "
                 + "coordinate POINT NOT NULL SRID 4326, "
                 + "category VARCHAR(50), "
