@@ -117,6 +117,7 @@ public class RestaurantImageBatchCrawler {
                                 // 음식점 크롤링 및 배치
                                 jdbcBatchExecutor.addRestaurant(
                                         restaurantPk,
+                                        restaurantId,
                                         restaurantNode.path("name").asText(), // cant be null
                                         Double.parseDouble(restaurantNode.path("x").asText()), // cant be null
                                         Double.parseDouble(restaurantNode.path("y").asText()), // cant be null
@@ -128,8 +129,6 @@ public class RestaurantImageBatchCrawler {
                                 for (JsonNode imageNode : restaurantNode.path("images")) {
                                     jdbcBatchExecutor.addRestaurantImage(restaurantPk, imageNode.asText());
                                 }
-                                // 메뉴, 메뉴 이미지, 리뷰, 리뷰 이미지 영업시간 크롤링 및 배치
-                                menuReviewCrawler.crawl(restaurantPk, restaurantId);
                             }
                         }
 
