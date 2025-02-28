@@ -1,5 +1,6 @@
 package com.rouleatt.demo.crawler;
 
+import static com.rouleatt.demo.proxy.ProxyContainer.*;
 import static com.rouleatt.demo.utils.CrawlerUtils.*;
 import static java.lang.Integer.MAX_VALUE;
 
@@ -7,15 +8,24 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rouleatt.demo.db.JdbcBatchExecutor;
 import com.rouleatt.demo.db.RestaurantIdGenerator;
+import com.rouleatt.demo.proxy.ProxyContainer;
 import com.rouleatt.demo.utils.Region;
 import java.io.IOException;
 import java.net.URI;
+import java.util.Random;
 import java.util.Stack;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.hc.client5.http.auth.AuthScope;
+import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 
@@ -26,25 +36,29 @@ public class RestaurantImageBatchCrawler {
     private final ObjectMapper mapper;
     private final JdbcBatchExecutor jdbcBatchExecutor;
     private final MenuReviewBatchCrawler menuReviewCrawler;
+    private final ExecutorService executorService;
 
     public RestaurantImageBatchCrawler() {
         this.mapper = new ObjectMapper();
         this.jdbcBatchExecutor = new JdbcBatchExecutor();
         this.menuReviewCrawler = new MenuReviewBatchCrawler();
+        this.executorService = Executors.newFixedThreadPool(PROXY_CONFIGS.size());
     }
 
     public void crawlAll() {
         for (Region region : Region.values()) {
 
-            String fullName = region.getFullName();
-            String shortName = region.getShortName();
-            double minX = region.getMinX();
-            double minY = region.getMinY();
-            double maxX = region.getMaxX();
-            double maxY = region.getMaxY();
-
-            crawl(fullName, shortName, minX, minY, maxX, maxY);
+            executorService.submit(() -> {
+                String fullName = region.getFullName();
+                String shortName = region.getShortName();
+                double minX = region.getMinX();
+                double minY = region.getMinY();
+                double maxX = region.getMaxX();
+                double maxY = region.getMaxY();
+                crawl(fullName, shortName, minX, minY, maxX, maxY);
+            });
         }
+        executorService.shutdown();
     }
 
     private void crawl(
@@ -114,10 +128,7 @@ public class RestaurantImageBatchCrawler {
                             }
                         }
 
-                        // 100개 미만의 음식점 나왔더라도 타겟팅한 행정구역이 아닌 경우 방지
-                        if (jdbcBatchExecutor.shouldBatchInsert()) {
-                            jdbcBatchExecutor.batchInsert();
-                        }
+                        jdbcBatchExecutor.batchInsert();
                     }
                     // 크롤링한 음식점이 100개 이상이라면 영역을 쪼개기 위해 스택 푸시
                     else {
@@ -179,7 +190,24 @@ public class RestaurantImageBatchCrawler {
 
     private String sendHttpRequest(URI uri) throws IOException, ParseException {
 
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+        ProxyConfig proxyConfig = ProxyContainer.getNextProxyConfig();
+        HttpHost proxy = new HttpHost(proxyConfig.ip, proxyConfig.port);
+
+        // 프록시 인증 정보 설정
+        BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+        credentialsProvider.setCredentials(
+                new AuthScope(proxy),
+                new UsernamePasswordCredentials(
+                        proxyConfig.username,
+                        proxyConfig.password.toCharArray())
+        );
+
+        try (CloseableHttpClient httpClient = HttpClients.custom()
+                .setProxy(proxy)
+                .setDefaultCredentialsProvider(credentialsProvider)
+                .setConnectionManager(new PoolingHttpClientConnectionManager())
+                .build())
+        {
             HttpGet request = new HttpGet(uri);
             request.addHeader(RI_AUTHORITY_KEY, RI_AUTHORITY_VALUE);
             request.addHeader(RI_METHOD_KEY, RI_METHOD_VALUE);
@@ -202,7 +230,7 @@ public class RestaurantImageBatchCrawler {
             request.addHeader(RI_USER_AGENT_KEY, RI_USER_AGENT_VALUE);
 
             try {
-                Thread.sleep(1_000);
+                Thread.sleep(1_000 + new Random().nextInt(10_000));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
