@@ -23,13 +23,13 @@ public class JdbcBatchExecutor {
     private static final String USERNAME = EnvLoader.get("USERNAME");
     private static final String PASSWORD = EnvLoader.get("PASSWORD");
 
-    private final List<RestaurantDto> RESTAURANT_BATCH = new ArrayList<>();
-    private final List<RestaurantImageDto> RESTAURANT_IMAGE_BATCH = new ArrayList<>();
-    private final List<MenuDto> MENU_BATCH = new ArrayList<>();
-    private final List<MenuImageDto> MENU_IMAGE_BATCH = new ArrayList<>();
-    private final List<ReviewDto> REVIEW_BATCH = new ArrayList<>();
-    private final List<ReviewImageDto> REVIEW_IMAGE_BATCH = new ArrayList<>();
-    private final List<BizHourDto> BIZ_HOUR_BATCH = new ArrayList<>();
+    private final ThreadLocal<List<RestaurantDto>> RESTAURANT_BATCH = ThreadLocal.withInitial(ArrayList::new);
+    private final ThreadLocal<List<RestaurantImageDto>> RESTAURANT_IMAGE_BATCH = ThreadLocal.withInitial(ArrayList::new);
+    private final ThreadLocal<List<MenuDto>> MENU_BATCH = ThreadLocal.withInitial(ArrayList::new);
+    private final ThreadLocal<List<MenuImageDto>> MENU_IMAGE_BATCH = ThreadLocal.withInitial(ArrayList::new);
+    private final ThreadLocal<List<ReviewDto>> REVIEW_BATCH = ThreadLocal.withInitial(ArrayList::new);
+    private final ThreadLocal<List<ReviewImageDto>> REVIEW_IMAGE_BATCH = ThreadLocal.withInitial(ArrayList::new);
+    private final ThreadLocal<List<BizHourDto>> BIZ_HOUR_BATCH = ThreadLocal.withInitial(ArrayList::new);
 
     private static final String RESTAURANT_INSERT_MANUAL_INCREMENT_SQL = "INSERT INTO restaurant (id, rid, name, coordinate, category, address, road_address) VALUES (?, ?, ?, ST_GeomFromText(?, 4326), ?, ?, ?)";
     private static final String RESTAURANT_IMAGE_AUTO_INCREMENT_INSERT_SQL = "INSERT INTO restaurant_image (restaurant_id, url) VALUES (?, ?)";
@@ -49,14 +49,14 @@ public class JdbcBatchExecutor {
             String address,
             String roadAddress
     ) {
-        RESTAURANT_BATCH.add(RestaurantDto.of(restaurantPk, restaurantId, name, x, y, category, address, roadAddress));
+        RESTAURANT_BATCH.get().add(RestaurantDto.of(restaurantPk, restaurantId, name, x, y, category, address, roadAddress));
     }
 
     public void addRestaurantImage(
             int restaurantFk,
             String url
     ) {
-        RESTAURANT_IMAGE_BATCH.add(RestaurantImageDto.of(restaurantFk, url));
+        RESTAURANT_IMAGE_BATCH.get().add(RestaurantImageDto.of(restaurantFk, url));
     }
 
     public void addMenu(
@@ -68,14 +68,14 @@ public class JdbcBatchExecutor {
             String description,
             int menuIdx
     ) {
-        MENU_BATCH.add(MenuDto.of(menuPk, restaurantFk, name, price, isRecommended, description, menuIdx));
+        MENU_BATCH.get().add(MenuDto.of(menuPk, restaurantFk, name, price, isRecommended, description, menuIdx));
     }
 
     public void addMenuImage(
             int menuFk,
             String imageUrl
     ) {
-        MENU_IMAGE_BATCH.add(MenuImageDto.of(menuFk, imageUrl));
+        MENU_IMAGE_BATCH.get().add(MenuImageDto.of(menuFk, imageUrl));
     }
 
     public void addReview(
@@ -91,7 +91,7 @@ public class JdbcBatchExecutor {
             String authorName,
             String createdAt
     ) {
-        REVIEW_BATCH.add(ReviewDto.of(
+        REVIEW_BATCH.get().add(ReviewDto.of(
                 reviewPk,
                 restaurantFk,
                 name,
@@ -106,7 +106,7 @@ public class JdbcBatchExecutor {
     }
 
     public void addReviewImage(int reviewFk, String thumbnailUrl) {
-        REVIEW_IMAGE_BATCH.add(ReviewImageDto.of(reviewFk, thumbnailUrl));
+        REVIEW_IMAGE_BATCH.get().add(ReviewImageDto.of(reviewFk, thumbnailUrl));
     }
 
     public void addBizHour(
@@ -118,7 +118,7 @@ public class JdbcBatchExecutor {
             String breakStart,
             String breakEnd
     ) {
-        BIZ_HOUR_BATCH.add(BizHourDto.of(restaurantFk, day, bizStart, bizEnd, lastOrder, breakStart, breakEnd));
+        BIZ_HOUR_BATCH.get().add(BizHourDto.of(restaurantFk, day, bizStart, bizEnd, lastOrder, breakStart, breakEnd));
     }
 
     public void batchInsert() {
@@ -135,7 +135,7 @@ public class JdbcBatchExecutor {
                  PreparedStatement rvipstmt = conn.prepareStatement(REVIEW_IMAGE_AUTO_INCREMENT_INSERT_SQL);
                  PreparedStatement bhpstmt = conn.prepareStatement(BIZ_HOUR_AUTO_INCREMENT_INSERT_SQL)) {
 
-                for (RestaurantDto restaurantDto : RESTAURANT_BATCH) {
+                for (RestaurantDto restaurantDto : RESTAURANT_BATCH.get()) {
                     rtpstmt.setInt(1, restaurantDto.restaurantPk());
                     rtpstmt.setString(2, restaurantDto.restaurantId());
                     rtpstmt.setString(3, restaurantDto.name());
@@ -146,13 +146,13 @@ public class JdbcBatchExecutor {
                     rtpstmt.addBatch();
                 }
 
-                for (RestaurantImageDto imageDto : RESTAURANT_IMAGE_BATCH) {
+                for (RestaurantImageDto imageDto : RESTAURANT_IMAGE_BATCH.get()) {
                     rtipstmt.setInt(1, imageDto.restaurantFk());
                     rtipstmt.setString(2, imageDto.url());
                     rtipstmt.addBatch();
                 }
 
-                for (MenuDto menuDto : MENU_BATCH) {
+                for (MenuDto menuDto : MENU_BATCH.get()) {
                     mpstmt.setInt(1, menuDto.menuPk());
                     mpstmt.setInt(2, menuDto.restaurantFk());
                     mpstmt.setString(3, menuDto.name());
@@ -163,13 +163,13 @@ public class JdbcBatchExecutor {
                     mpstmt.addBatch();
                 }
 
-                for (MenuImageDto menuImageDto : MENU_IMAGE_BATCH) {
+                for (MenuImageDto menuImageDto : MENU_IMAGE_BATCH.get()) {
                     mipstmt.setInt(1, menuImageDto.menuFk());
                     mipstmt.setString(2, menuImageDto.imageUrl());
                     mipstmt.addBatch();
                 }
 
-                for (ReviewDto reviewDto : REVIEW_BATCH) {
+                for (ReviewDto reviewDto : REVIEW_BATCH.get()) {
                     rvpstmt.setInt(1, reviewDto.reviewPk());
                     rvpstmt.setInt(2, reviewDto.restaurantFk());
                     rvpstmt.setString(3, reviewDto.name());
@@ -184,13 +184,13 @@ public class JdbcBatchExecutor {
                     rvpstmt.addBatch();
                 }
 
-                for (ReviewImageDto reviewImageDto : REVIEW_IMAGE_BATCH) {
+                for (ReviewImageDto reviewImageDto : REVIEW_IMAGE_BATCH.get()) {
                     rvipstmt.setInt(1, reviewImageDto.reviewFk());
                     rvipstmt.setString(2, reviewImageDto.thumbnailUrl());
                     rvipstmt.addBatch();
                 }
 
-                for (BizHourDto bizHourDto : BIZ_HOUR_BATCH) {
+                for (BizHourDto bizHourDto : BIZ_HOUR_BATCH.get()) {
                     bhpstmt.setInt(1, bizHourDto.restaurantFk());
                     bhpstmt.setString(2, bizHourDto.day());
                     bhpstmt.setString(3, bizHourDto.bizStart());
@@ -215,13 +215,13 @@ public class JdbcBatchExecutor {
                 log.info("쓰레드 {} 커밋 완료", Thread.currentThread().getName());
 
                 // 배치 후 리스트 비우기
-                RESTAURANT_BATCH.clear();
-                RESTAURANT_IMAGE_BATCH.clear();
-                MENU_BATCH.clear();
-                MENU_IMAGE_BATCH.clear();
-                REVIEW_BATCH.clear();
-                REVIEW_IMAGE_BATCH.clear();
-                BIZ_HOUR_BATCH.clear();
+                RESTAURANT_BATCH.get().clear();
+                RESTAURANT_IMAGE_BATCH.get().clear();
+                MENU_BATCH.get().clear();
+                MENU_IMAGE_BATCH.get().clear();
+                REVIEW_BATCH.get().clear();
+                REVIEW_IMAGE_BATCH.get().clear();
+                BIZ_HOUR_BATCH.get().clear();
 
             } catch (SQLException e) {
                 conn.rollback();
@@ -230,15 +230,5 @@ public class JdbcBatchExecutor {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-    }
-
-    public boolean shouldBatchInsert() {
-        return !RESTAURANT_BATCH.isEmpty() &&
-                !RESTAURANT_IMAGE_BATCH.isEmpty() &&
-                !MENU_BATCH.isEmpty() &&
-                !MENU_IMAGE_BATCH.isEmpty() &&
-                !REVIEW_BATCH.isEmpty() &&
-                !REVIEW_IMAGE_BATCH.isEmpty() &&
-                !BIZ_HOUR_BATCH.isEmpty();
     }
 }
