@@ -1,9 +1,11 @@
 package com.rouleatt.demo.proxy;
 
 import com.rouleatt.demo.utils.EnvLoader;
+import com.rouleatt.demo.utils.Region;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
 
 public class ProxyContainer {
 
@@ -11,18 +13,13 @@ public class ProxyContainer {
     private static final String PROXY_USERNAME = EnvLoader.get("PROXY_USERNAME");
     private static final String PROXY_PASSWORD = EnvLoader.get("PROXY_PASSWORD");
 
-    public static final List<ProxyConfig> PROXY_CONFIGS = new ArrayList<>();
-
-    public ProxyContainer() {
-        for (int i = 1; i <= 17; i++) { // 대한민국 행정구역 17개
-            PROXY_CONFIGS.add(new ProxyConfig(
+    public static final List<ProxyConfig> PROXY_CONFIGS = IntStream.rangeClosed(1, Region.values().length * 2)
+            .mapToObj(i -> new ProxyConfig(
                     EnvLoader.get("PROXY_IP_" + i),
                     PROXY_PORT,
                     PROXY_USERNAME,
-                    PROXY_PASSWORD)
-            );
-        }
-    }
+                    PROXY_PASSWORD))
+            .toList();
 
     private static final AtomicInteger PROXY_INDEX = new AtomicInteger(0); // 안전한 라운드 로빈
 
