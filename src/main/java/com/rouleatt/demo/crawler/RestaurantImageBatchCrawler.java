@@ -36,14 +36,12 @@ public class RestaurantImageBatchCrawler {
     private final ObjectMapper mapper;
     private final JdbcBatchExecutor jdbcBatchExecutor;
     private final MenuReviewBatchCrawler menuReviewCrawler;
-    private final ProxyContainer proxyContainer;
     private final ExecutorService executorService;
 
     public RestaurantImageBatchCrawler() {
         this.mapper = new ObjectMapper();
         this.jdbcBatchExecutor = new JdbcBatchExecutor();
         this.menuReviewCrawler = new MenuReviewBatchCrawler();
-        this.proxyContainer = new ProxyContainer();
         this.executorService = Executors.newFixedThreadPool(PROXY_CONFIGS.size());
     }
 
