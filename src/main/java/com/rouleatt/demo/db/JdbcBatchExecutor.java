@@ -326,4 +326,14 @@ public class JdbcBatchExecutor {
             e.printStackTrace();
         }
     }
+
+    public boolean shouldBatchInsert() {
+        return !RESTAURANT_BATCH.get().isEmpty() ||
+                !RESTAURANT_IMAGE_BATCH.get().isEmpty() ||
+                !MENU_BATCH.get().isEmpty() ||
+                !MENU_IMAGE_BATCH.get().isEmpty() ||
+                !REVIEW_BATCH.get().isEmpty() ||
+                !REVIEW_IMAGE_BATCH.get().isEmpty() ||
+                !BIZ_HOUR_BATCH.get().isEmpty();
+    }
 }

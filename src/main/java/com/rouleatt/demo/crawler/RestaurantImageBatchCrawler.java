@@ -130,13 +130,16 @@ public class RestaurantImageBatchCrawler {
                             }
                         }
 
-                        jdbcBatchExecutor.batchInsertRestaurant();
-                        jdbcBatchExecutor.batchInsertRestaurantImage();
-                        jdbcBatchExecutor.batchInsertMenu();
-                        jdbcBatchExecutor.batchInsertMenuImage();
-                        jdbcBatchExecutor.batchInsertReview();
-                        jdbcBatchExecutor.batchInsertReviewImage();
-                        jdbcBatchExecutor.batchInsertBizHour();
+                        // 타겟이 아닌 행정구역의 음식점일 경우 배치 삽입 건너뛰기
+                        if (jdbcBatchExecutor.shouldBatchInsert()) {
+                            jdbcBatchExecutor.batchInsertRestaurant();
+                            jdbcBatchExecutor.batchInsertRestaurantImage();
+                            jdbcBatchExecutor.batchInsertMenu();
+                            jdbcBatchExecutor.batchInsertMenuImage();
+                            jdbcBatchExecutor.batchInsertReview();
+                            jdbcBatchExecutor.batchInsertReviewImage();
+                            jdbcBatchExecutor.batchInsertBizHour();
+                        }
                     }
                     // 크롤링한 음식점이 100개 이상이라면 영역을 쪼개기 위해 스택 푸시
                     else {
