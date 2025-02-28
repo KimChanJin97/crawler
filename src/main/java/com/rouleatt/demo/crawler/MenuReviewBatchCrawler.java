@@ -212,7 +212,7 @@ public class MenuReviewBatchCrawler {
             request.addHeader(MR_USER_AGENT_KEY, MR_USER_AGENT_VALUE);
 
             try {
-                Thread.sleep(1_000 + new Random().nextInt(10_000));
+                Thread.sleep(10_000 + new Random().nextInt(10_000));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }

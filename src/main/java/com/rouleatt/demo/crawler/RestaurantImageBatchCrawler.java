@@ -130,7 +130,13 @@ public class RestaurantImageBatchCrawler {
                             }
                         }
 
-                        jdbcBatchExecutor.batchInsert();
+                        jdbcBatchExecutor.batchInsertRestaurant();
+                        jdbcBatchExecutor.batchInsertRestaurantImage();
+                        jdbcBatchExecutor.batchInsertMenu();
+                        jdbcBatchExecutor.batchInsertMenuImage();
+                        jdbcBatchExecutor.batchInsertReview();
+                        jdbcBatchExecutor.batchInsertReviewImage();
+                        jdbcBatchExecutor.batchInsertBizHour();
                     }
                     // 크롤링한 음식점이 100개 이상이라면 영역을 쪼개기 위해 스택 푸시
                     else {
@@ -232,7 +238,7 @@ public class RestaurantImageBatchCrawler {
             request.addHeader(RI_USER_AGENT_KEY, RI_USER_AGENT_VALUE);
 
             try {
-                Thread.sleep(1_000 + new Random().nextInt(10_000));
+                Thread.sleep(10_000 + new Random().nextInt(10_000));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
