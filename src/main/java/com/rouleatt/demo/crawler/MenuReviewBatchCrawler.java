@@ -11,8 +11,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rouleatt.demo.db.JdbcBatchExecutor;
 import com.rouleatt.demo.db.MenuIdGenerator;
 import com.rouleatt.demo.db.ReviewIdGenerator;
-import com.rouleatt.demo.proxy.ProxyContainer;
-import com.rouleatt.demo.proxy.ProxyContainer.ProxyConfig;
 import java.io.IOException;
 import java.net.URI;
 import java.time.LocalDateTime;
@@ -21,15 +19,10 @@ import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Random;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.hc.client5.http.auth.AuthScope;
-import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
-import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
-import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.jsoup.Jsoup;
@@ -173,24 +166,8 @@ public class MenuReviewBatchCrawler {
     }
 
     private String sendHttpRequest(URI uri, String restaurantId) throws IOException, ParseException {
-        ProxyConfig proxyConfig = ProxyContainer.getNextProxyConfig();
-        HttpHost proxy = new HttpHost(proxyConfig.ip, proxyConfig.port);
 
-        // 프록시 인증 정보 설정
-        BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-        credentialsProvider.setCredentials(
-                new AuthScope(proxy),
-                new UsernamePasswordCredentials(
-                        proxyConfig.username,
-                        proxyConfig.password.toCharArray())
-        );
-
-        try (CloseableHttpClient httpClient = HttpClients.custom()
-                .setProxy(proxy)
-                .setDefaultCredentialsProvider(credentialsProvider)
-                .setConnectionManager(new PoolingHttpClientConnectionManager())
-                .build())
-        {
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpGet request = new HttpGet(uri);
             request.addHeader(MR_AUTHORITY_KEY, MR_AUTHORITY_VALUE);
             request.addHeader(MR_METHOD_KEY, MR_METHOD_VALUE);

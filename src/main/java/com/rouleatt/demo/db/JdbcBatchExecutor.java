@@ -23,13 +23,13 @@ public class JdbcBatchExecutor {
     private static final String USERNAME = EnvLoader.get("USERNAME");
     private static final String PASSWORD = EnvLoader.get("PASSWORD");
 
-    private final ThreadLocal<List<RestaurantDto>> RESTAURANT_BATCH = ThreadLocal.withInitial(ArrayList::new);
-    private final ThreadLocal<List<RestaurantImageDto>> RESTAURANT_IMAGE_BATCH = ThreadLocal.withInitial(ArrayList::new);
-    private final ThreadLocal<List<MenuDto>> MENU_BATCH = ThreadLocal.withInitial(ArrayList::new);
-    private final ThreadLocal<List<MenuImageDto>> MENU_IMAGE_BATCH = ThreadLocal.withInitial(ArrayList::new);
-    private final ThreadLocal<List<ReviewDto>> REVIEW_BATCH = ThreadLocal.withInitial(ArrayList::new);
-    private final ThreadLocal<List<ReviewImageDto>> REVIEW_IMAGE_BATCH = ThreadLocal.withInitial(ArrayList::new);
-    private final ThreadLocal<List<BizHourDto>> BIZ_HOUR_BATCH = ThreadLocal.withInitial(ArrayList::new);
+    private final List<RestaurantDto> RESTAURANT_BATCH = new ArrayList<>();
+    private final List<RestaurantImageDto> RESTAURANT_IMAGE_BATCH = new ArrayList<>();
+    private final List<MenuDto> MENU_BATCH = new ArrayList<>();
+    private final List<MenuImageDto> MENU_IMAGE_BATCH = new ArrayList<>();
+    private final List<ReviewDto> REVIEW_BATCH = new ArrayList<>();
+    private final List<ReviewImageDto> REVIEW_IMAGE_BATCH = new ArrayList<>();
+    private final List<BizHourDto> BIZ_HOUR_BATCH = new ArrayList<>();
 
     private static final String RESTAURANT_INSERT_MANUAL_INCREMENT_SQL = "INSERT INTO restaurant (id, rid, name, coordinate, category, address, road_address) VALUES (?, ?, ?, ST_GeomFromText(?, 4326), ?, ?, ?)";
     private static final String RESTAURANT_IMAGE_AUTO_INCREMENT_INSERT_SQL = "INSERT INTO restaurant_image (restaurant_id, url) VALUES (?, ?)";
@@ -49,14 +49,14 @@ public class JdbcBatchExecutor {
             String address,
             String roadAddress
     ) {
-        RESTAURANT_BATCH.get().add(RestaurantDto.of(restaurantPk, restaurantId, name, x, y, category, address, roadAddress));
+        RESTAURANT_BATCH.add(RestaurantDto.of(restaurantPk, restaurantId, name, x, y, category, address, roadAddress));
     }
 
     public void addRestaurantImage(
             int restaurantFk,
             String url
     ) {
-        RESTAURANT_IMAGE_BATCH.get().add(RestaurantImageDto.of(restaurantFk, url));
+        RESTAURANT_IMAGE_BATCH.add(RestaurantImageDto.of(restaurantFk, url));
     }
 
     public void addMenu(
@@ -68,14 +68,14 @@ public class JdbcBatchExecutor {
             String description,
             int menuIdx
     ) {
-        MENU_BATCH.get().add(MenuDto.of(menuPk, restaurantFk, name, price, isRecommended, description, menuIdx));
+        MENU_BATCH.add(MenuDto.of(menuPk, restaurantFk, name, price, isRecommended, description, menuIdx));
     }
 
     public void addMenuImage(
             int menuFk,
             String imageUrl
     ) {
-        MENU_IMAGE_BATCH.get().add(MenuImageDto.of(menuFk, imageUrl));
+        MENU_IMAGE_BATCH.add(MenuImageDto.of(menuFk, imageUrl));
     }
 
     public void addReview(
@@ -91,7 +91,7 @@ public class JdbcBatchExecutor {
             String authorName,
             String createdAt
     ) {
-        REVIEW_BATCH.get().add(ReviewDto.of(
+        REVIEW_BATCH.add(ReviewDto.of(
                 reviewPk,
                 restaurantFk,
                 name,
@@ -106,7 +106,7 @@ public class JdbcBatchExecutor {
     }
 
     public void addReviewImage(int reviewFk, String thumbnailUrl) {
-        REVIEW_IMAGE_BATCH.get().add(ReviewImageDto.of(reviewFk, thumbnailUrl));
+        REVIEW_IMAGE_BATCH.add(ReviewImageDto.of(reviewFk, thumbnailUrl));
     }
 
     public void addBizHour(
@@ -118,16 +118,24 @@ public class JdbcBatchExecutor {
             String breakStart,
             String breakEnd
     ) {
-        BIZ_HOUR_BATCH.get().add(BizHourDto.of(restaurantFk, day, bizStart, bizEnd, lastOrder, breakStart, breakEnd));
+        BIZ_HOUR_BATCH.add(BizHourDto.of(restaurantFk, day, bizStart, bizEnd, lastOrder, breakStart, breakEnd));
     }
 
-    public void batchInsertRestaurant() {
+    public void batchInsert() {
 
         try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD)) {
-            conn.setAutoCommit(false);
-            try (PreparedStatement rtpstmt = conn.prepareStatement(RESTAURANT_INSERT_MANUAL_INCREMENT_SQL)) {
 
-                for (RestaurantDto restaurantDto : RESTAURANT_BATCH.get()) {
+            conn.setAutoCommit(false);
+
+            try (PreparedStatement rtpstmt = conn.prepareStatement(RESTAURANT_INSERT_MANUAL_INCREMENT_SQL);
+                 PreparedStatement rtipstmt = conn.prepareStatement(RESTAURANT_IMAGE_AUTO_INCREMENT_INSERT_SQL);
+                 PreparedStatement mpstmt = conn.prepareStatement(MENU_INSERT_MANUAL_INCREMENT_SQL);
+                 PreparedStatement mipstmt = conn.prepareStatement(MENU_IMAGE_AUTO_INCREMENT_INSERT_SQL);
+                 PreparedStatement rvpstmt = conn.prepareStatement(REVIEW_INSERT_MANUAL_INCREMENT_SQL);
+                 PreparedStatement rvipstmt = conn.prepareStatement(REVIEW_IMAGE_AUTO_INCREMENT_INSERT_SQL);
+                 PreparedStatement bhpstmt = conn.prepareStatement(BIZ_HOUR_AUTO_INCREMENT_INSERT_SQL)) {
+
+                for (RestaurantDto restaurantDto : RESTAURANT_BATCH) {
                     rtpstmt.setInt(1, restaurantDto.restaurantPk());
                     rtpstmt.setString(2, restaurantDto.restaurantId());
                     rtpstmt.setString(3, restaurantDto.name());
@@ -138,53 +146,13 @@ public class JdbcBatchExecutor {
                     rtpstmt.addBatch();
                 }
 
-                rtpstmt.executeBatch();
-                conn.commit();
-                RESTAURANT_BATCH.get().clear();
-                log.info("[JBE] 음식점 커밋 완료 (쓰레드 {})", Thread.currentThread().getName());
-
-            } catch (SQLException e) {
-                conn.rollback();
-                e.printStackTrace();
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void batchInsertRestaurantImage() {
-
-        try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD)) {
-            conn.setAutoCommit(false);
-            try (PreparedStatement rtipstmt = conn.prepareStatement(RESTAURANT_IMAGE_AUTO_INCREMENT_INSERT_SQL)) {
-
-                for (RestaurantImageDto imageDto : RESTAURANT_IMAGE_BATCH.get()) {
+                for (RestaurantImageDto imageDto : RESTAURANT_IMAGE_BATCH) {
                     rtipstmt.setInt(1, imageDto.restaurantFk());
                     rtipstmt.setString(2, imageDto.url());
                     rtipstmt.addBatch();
                 }
 
-                rtipstmt.executeBatch();
-                conn.commit();
-                RESTAURANT_IMAGE_BATCH.get().clear();
-                log.info("[JBE] 음식점 커밋 완료 (쓰레드 {})", Thread.currentThread().getName());
-
-            } catch (SQLException e) {
-                conn.rollback();
-                e.printStackTrace();
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void batchInsertMenu() {
-
-        try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD)) {
-            conn.setAutoCommit(false);
-            try (PreparedStatement mpstmt = conn.prepareStatement(MENU_INSERT_MANUAL_INCREMENT_SQL)) {
-
-                for (MenuDto menuDto : MENU_BATCH.get()) {
+                for (MenuDto menuDto : MENU_BATCH) {
                     mpstmt.setInt(1, menuDto.menuPk());
                     mpstmt.setInt(2, menuDto.restaurantFk());
                     mpstmt.setString(3, menuDto.name());
@@ -195,53 +163,13 @@ public class JdbcBatchExecutor {
                     mpstmt.addBatch();
                 }
 
-                mpstmt.executeBatch();
-                conn.commit();
-                MENU_BATCH.get().clear();
-                log.info("[JBE] 메뉴 커밋 완료 (쓰레드 {})", Thread.currentThread().getName());
-
-            } catch (SQLException e) {
-                conn.rollback();
-                e.printStackTrace();
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void batchInsertMenuImage() {
-
-        try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD)) {
-            conn.setAutoCommit(false);
-            try (PreparedStatement mipstmt = conn.prepareStatement(MENU_IMAGE_AUTO_INCREMENT_INSERT_SQL)) {
-
-                for (MenuImageDto menuImageDto : MENU_IMAGE_BATCH.get()) {
+                for (MenuImageDto menuImageDto : MENU_IMAGE_BATCH) {
                     mipstmt.setInt(1, menuImageDto.menuFk());
                     mipstmt.setString(2, menuImageDto.imageUrl());
                     mipstmt.addBatch();
                 }
 
-                mipstmt.executeBatch();
-                conn.commit();
-                MENU_IMAGE_BATCH.get().clear();
-                log.info("[JBE] 메뉴 이미지 커밋 완료 (쓰레드 {})", Thread.currentThread().getName());
-
-            } catch (SQLException e) {
-                conn.rollback();
-                e.printStackTrace();
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void batchInsertReview() {
-
-        try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD)) {
-            conn.setAutoCommit(false);
-            try (PreparedStatement rvpstmt = conn.prepareStatement(REVIEW_INSERT_MANUAL_INCREMENT_SQL)) {
-
-                for (ReviewDto reviewDto : REVIEW_BATCH.get()) {
+                for (ReviewDto reviewDto : REVIEW_BATCH) {
                     rvpstmt.setInt(1, reviewDto.reviewPk());
                     rvpstmt.setInt(2, reviewDto.restaurantFk());
                     rvpstmt.setString(3, reviewDto.name());
@@ -256,53 +184,13 @@ public class JdbcBatchExecutor {
                     rvpstmt.addBatch();
                 }
 
-                rvpstmt.executeBatch();
-                conn.commit();
-                REVIEW_BATCH.get().clear();
-                log.info("[JBE] 리뷰 커밋 완료 (쓰레드 {})", Thread.currentThread().getName());
-
-            } catch (SQLException e) {
-                conn.rollback();
-                e.printStackTrace();
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void batchInsertReviewImage() {
-
-        try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD)) {
-            conn.setAutoCommit(false);
-            try (PreparedStatement rvipstmt = conn.prepareStatement(REVIEW_IMAGE_AUTO_INCREMENT_INSERT_SQL)) {
-
-                for (ReviewImageDto reviewImageDto : REVIEW_IMAGE_BATCH.get()) {
+                for (ReviewImageDto reviewImageDto : REVIEW_IMAGE_BATCH) {
                     rvipstmt.setInt(1, reviewImageDto.reviewFk());
                     rvipstmt.setString(2, reviewImageDto.thumbnailUrl());
                     rvipstmt.addBatch();
                 }
 
-                rvipstmt.executeBatch();
-                conn.commit();
-                REVIEW_IMAGE_BATCH.get().clear();
-                log.info("[JBE] 리뷰 이미지 커밋 완료 (쓰레드 {})", Thread.currentThread().getName());
-
-            } catch (SQLException e) {
-                conn.rollback();
-                e.printStackTrace();
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void batchInsertBizHour() {
-
-        try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD)) {
-            conn.setAutoCommit(false);
-            try (PreparedStatement bhpstmt = conn.prepareStatement(BIZ_HOUR_AUTO_INCREMENT_INSERT_SQL)) {
-
-                for (BizHourDto bizHourDto : BIZ_HOUR_BATCH.get()) {
+                for (BizHourDto bizHourDto : BIZ_HOUR_BATCH) {
                     bhpstmt.setInt(1, bizHourDto.restaurantFk());
                     bhpstmt.setString(2, bizHourDto.day());
                     bhpstmt.setString(3, bizHourDto.bizStart());
@@ -313,10 +201,27 @@ public class JdbcBatchExecutor {
                     bhpstmt.addBatch();
                 }
 
+                // 배치 실행 (커밋X)
+                rtpstmt.executeBatch();
+                rtipstmt.executeBatch();
+                mpstmt.executeBatch();
+                mipstmt.executeBatch();
+                rvpstmt.executeBatch();
+                rvipstmt.executeBatch();
                 bhpstmt.executeBatch();
+
+                // 배치 실행이 끝나면 한번에 커밋
                 conn.commit();
-                BIZ_HOUR_BATCH.get().clear();
-                log.info("[JBE] 영업시간 커밋 완료 (쓰레드 {})", Thread.currentThread().getName());
+                log.info("커밋 완료");
+
+                // 배치 후 리스트 비우기
+                RESTAURANT_BATCH.clear();
+                RESTAURANT_IMAGE_BATCH.clear();
+                MENU_BATCH.clear();
+                MENU_IMAGE_BATCH.clear();
+                REVIEW_BATCH.clear();
+                REVIEW_IMAGE_BATCH.clear();
+                BIZ_HOUR_BATCH.clear();
 
             } catch (SQLException e) {
                 conn.rollback();
@@ -325,15 +230,5 @@ public class JdbcBatchExecutor {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-    }
-
-    public boolean shouldBatchInsert() {
-        return !RESTAURANT_BATCH.get().isEmpty() ||
-                !RESTAURANT_IMAGE_BATCH.get().isEmpty() ||
-                !MENU_BATCH.get().isEmpty() ||
-                !MENU_IMAGE_BATCH.get().isEmpty() ||
-                !REVIEW_BATCH.get().isEmpty() ||
-                !REVIEW_IMAGE_BATCH.get().isEmpty() ||
-                !BIZ_HOUR_BATCH.get().isEmpty();
     }
 }
