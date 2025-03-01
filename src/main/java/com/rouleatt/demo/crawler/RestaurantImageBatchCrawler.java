@@ -82,8 +82,8 @@ public class RestaurantImageBatchCrawler {
                     JsonNode countNode = metaNode.path("count");
                     JsonNode restaurantsNode = resultNode.path("list");
 
-                    // 크롤링한 음식점이 100개 미만이라면
-                    if (countNode.asInt() < 100) {
+                    // 크롤링한 음식점이 0개 초과 100개 미만이라면
+                    if (0 < countNode.asInt() && countNode.asInt() < 100) {
 
                         for (JsonNode restaurantNode : restaurantsNode) {
 
@@ -118,7 +118,7 @@ public class RestaurantImageBatchCrawler {
 
                     }
                     // 크롤링한 음식점이 100개 이상이라면 영역을 쪼개기 위해 스택 푸시
-                    else {
+                    else if (countNode.asInt() >= 100) {
 
                         double midX = (currentMinX + currentMaxX) / 2;
                         double midY = (currentMinY + currentMaxY) / 2;

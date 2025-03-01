@@ -23,13 +23,13 @@ public class JdbcBatchExecutor {
     private static final String USERNAME = EnvLoader.get("USERNAME");
     private static final String PASSWORD = EnvLoader.get("PASSWORD");
 
-    private final List<RestaurantDto> RESTAURANT_BATCH = new ArrayList<>();
-    private final List<RestaurantImageDto> RESTAURANT_IMAGE_BATCH = new ArrayList<>();
-    private final List<MenuDto> MENU_BATCH = new ArrayList<>();
-    private final List<MenuImageDto> MENU_IMAGE_BATCH = new ArrayList<>();
-    private final List<ReviewDto> REVIEW_BATCH = new ArrayList<>();
-    private final List<ReviewImageDto> REVIEW_IMAGE_BATCH = new ArrayList<>();
-    private final List<BizHourDto> BIZ_HOUR_BATCH = new ArrayList<>();
+    private static final List<RestaurantDto> RESTAURANT_BATCH = new ArrayList<>();
+    private static final List<RestaurantImageDto> RESTAURANT_IMAGE_BATCH = new ArrayList<>();
+    private static final List<MenuDto> MENU_BATCH = new ArrayList<>();
+    private static final List<MenuImageDto> MENU_IMAGE_BATCH = new ArrayList<>();
+    private static final List<ReviewDto> REVIEW_BATCH = new ArrayList<>();
+    private static final List<ReviewImageDto> REVIEW_IMAGE_BATCH = new ArrayList<>();
+    private static final List<BizHourDto> BIZ_HOUR_BATCH = new ArrayList<>();
 
     private static final String RESTAURANT_INSERT_MANUAL_INCREMENT_SQL = "INSERT INTO restaurant (id, rid, name, coordinate, category, address, road_address) VALUES (?, ?, ?, ST_GeomFromText(?, 4326), ?, ?, ?)";
     private static final String RESTAURANT_IMAGE_AUTO_INCREMENT_INSERT_SQL = "INSERT INTO restaurant_image (restaurant_id, url) VALUES (?, ?)";

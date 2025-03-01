@@ -89,7 +89,6 @@ public class MenuReviewBatchCrawler {
                     // 리뷰, 리뷰 이미지 배치
                     if (MR_REVIEW_PATTERN.matcher(key).matches()) {
                         int reviewPk = ReviewIdGenerator.getNextId();
-
                         jdbcBatchExecutor.addReview(
                                 reviewPk,
                                 restaurantPk,
@@ -117,7 +116,6 @@ public class MenuReviewBatchCrawler {
                                 .path(MR_BIZ_HOUR_THIRD_DEPTH_KEY);
 
                         for (JsonNode businessHour : businessHours) {
-
                             jdbcBatchExecutor.addBizHour(
                                     restaurantPk,
                                     checkDay(checkNull(businessHour.path("day").asText())),
