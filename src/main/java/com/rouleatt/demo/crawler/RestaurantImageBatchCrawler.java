@@ -112,8 +112,10 @@ public class RestaurantImageBatchCrawler {
                             }
                         }
 
-                        // 배치 삽입
-                        jdbcBatchExecutor.batchInsert();
+                        // 타겟팅한 행정구역이 아닐 경우 배치 삽입 호출할 필요없음
+                        if (jdbcBatchExecutor.shouldBatchInsert()) {
+                            jdbcBatchExecutor.batchInsert();
+                        }
 
                     }
                     // 크롤링한 음식점이 100개 이상이라면 영역을 쪼개기 위해 스택 푸시
@@ -216,7 +218,7 @@ public class RestaurantImageBatchCrawler {
             String region = address.substring(0, 8);
             return region.contains(fullName) || region.contains(shortName);
         }
-        // 행정구역을 추출할 수 없는 길이의 주소가 아니라면
+        // 행정구역을 추출할 수 없는 길이의 주소라면
         if (address != null && address.length() < 8) {
             return address.contains(fullName) || address.contains(shortName);
         }

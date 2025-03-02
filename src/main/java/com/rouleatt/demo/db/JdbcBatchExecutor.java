@@ -19,6 +19,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class JdbcBatchExecutor {
 
+    private static int count = 0;
+
     private static final String JDBC_URL = EnvLoader.get("JDBC_URL");
     private static final String USERNAME = EnvLoader.get("USERNAME");
     private static final String PASSWORD = EnvLoader.get("PASSWORD");
@@ -212,7 +214,7 @@ public class JdbcBatchExecutor {
 
                 // 배치 실행이 끝나면 한번에 커밋
                 conn.commit();
-                log.info("커밋 완료");
+                log.info("배치 삽입 횟수 = {}", ++count);
 
                 // 배치 후 리스트 비우기
                 RESTAURANT_BATCH.clear();
@@ -230,5 +232,15 @@ public class JdbcBatchExecutor {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+    }
+
+    public boolean shouldBatchInsert() {
+        return !RESTAURANT_BATCH.isEmpty() ||
+                !RESTAURANT_IMAGE_BATCH.isEmpty() ||
+                !MENU_BATCH.isEmpty() ||
+                !MENU_IMAGE_BATCH.isEmpty() ||
+                !REVIEW_BATCH.isEmpty() ||
+                !REVIEW_IMAGE_BATCH.isEmpty() ||
+                !BIZ_HOUR_BATCH.isEmpty();
     }
 }
