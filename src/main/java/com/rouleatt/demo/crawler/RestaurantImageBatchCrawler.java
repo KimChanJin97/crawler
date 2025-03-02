@@ -215,11 +215,11 @@ public class RestaurantImageBatchCrawler {
     private boolean isTarget(String address, String fullName, String shortName) {
         // 행정구역을 추출할 수 있는 길이의 주소라면
         if (address != null && address.length() >= 8) {
-            String region = address.substring(0, 8);
+            String region = address.substring(0, 7);
             return region.contains(fullName) || region.contains(shortName);
         }
         // 행정구역을 추출할 수 없는 길이의 주소라면
-        if (address != null && address.length() < 8) {
+        if (address != null) {
             return address.contains(fullName) || address.contains(shortName);
         }
         // 주소가 존재하지 않다면
