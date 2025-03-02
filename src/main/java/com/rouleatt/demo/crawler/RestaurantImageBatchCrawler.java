@@ -200,7 +200,7 @@ public class RestaurantImageBatchCrawler {
             request.addHeader(RI_USER_AGENT_KEY, RI_USER_AGENT_VALUE);
 
             try {
-                Thread.sleep(10_000 + new Random().nextInt(10_000));
+                Thread.sleep(1_000);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -212,10 +212,16 @@ public class RestaurantImageBatchCrawler {
     }
 
     private boolean isTarget(String address, String fullName, String shortName) {
-        if (address != null) {
+        // 행정구역을 추출할 수 있는 길이의 주소라면
+        if (address != null && address.length() >= 8) {
             String region = address.substring(0, 8);
             return region.contains(fullName) || region.contains(shortName);
         }
+        // 행정구역을 추출할 수 없는 길이의 주소가 아니라면
+        if (address!= null && address.length() < 8) {
+            return address.contains(fullName) || address.contains(shortName);
+        }
+        // 주소가 존재하지 않다면
         return false;
     }
 
