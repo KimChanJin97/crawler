@@ -10,7 +10,6 @@ import com.rouleatt.demo.db.RestaurantIdGenerator;
 import com.rouleatt.demo.utils.Region;
 import java.io.IOException;
 import java.net.URI;
-import java.util.Random;
 import java.util.Stack;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
@@ -218,7 +217,7 @@ public class RestaurantImageBatchCrawler {
             return region.contains(fullName) || region.contains(shortName);
         }
         // 행정구역을 추출할 수 없는 길이의 주소가 아니라면
-        if (address!= null && address.length() < 8) {
+        if (address != null && address.length() < 8) {
             return address.contains(fullName) || address.contains(shortName);
         }
         // 주소가 존재하지 않다면
