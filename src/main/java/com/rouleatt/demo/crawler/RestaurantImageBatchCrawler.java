@@ -43,7 +43,7 @@ public class RestaurantImageBatchCrawler {
         Stack<RegionDto> stack = new Stack<>();
 
         if (stackManager.hasFirstRegionObject()) {
-            // 좌표 데이터가 백업되어있다면 백업 데이터부터(장애 발생 시점의 좌표)부터 크롤링
+            // 좌표 데이터가 백업되어있다면 백업 데이터부터(차단 시점의 좌표)부터 크롤링
             List<RegionDto> regionDtos = stackManager.getAllRegionObjectsOrderByIdDesc();
             regionDtos.stream().forEach(regionDto -> stack.push(regionDto));
         } else {
