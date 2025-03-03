@@ -55,11 +55,13 @@ public class RestaurantImageBatchCrawler {
         }
         // 좌표 데이터가 백업되어있지 않다면 데이터베이스 드랍하고 처음부터 크롤링
         else if (!tableManager.hasFirstRegionObject()) {
+            log.info("처음부터 크롤링 시작");
             tableManager.init();
             Arrays.stream(Region.values()).forEach(region -> stack.push(RegionDto.from(region)));
         }
         // 좌표 데이터가 백업되어있다면 백업 데이터(차단 시점의 좌표들)부터 크롤링
         else if (tableManager.hasFirstRegionObject()) {
+            log.info("IP 차단 시점의 좌표부터 크롤링 시작");
             List<RegionDto> regionDtos = stackManager.getAllRegionObjectsOrderByIdDesc();
             regionDtos.stream().forEach(regionDto -> stack.push(regionDto));
         }
@@ -150,7 +152,7 @@ public class RestaurantImageBatchCrawler {
 
                 }
             } catch (IOException e) {
-                log.error("[RI] IOException 발생. 네이버의 IP 차단으로 장애 발생 시점 스택 저장\n", e);
+                log.error("[RI] IOException 발생. IP 차단 시점 모든 좌표 저장\n", e);
 
                 // 배치 삽입
                 jdbcBatchExecutor.batchInsert();
@@ -159,6 +161,9 @@ public class RestaurantImageBatchCrawler {
                 stackManager.setRegionObject(regionDto);
                 // IP 차단 시점의 스택의 모든 요소들을 저장
                 stackManager.setAllRegionObjects(stack);
+
+                log.info("백업 완료");
+                return;
 
             } catch (ParseException e) {
                 log.error("[RI] ParseException 발생\n 응답 = {}\n", response);
