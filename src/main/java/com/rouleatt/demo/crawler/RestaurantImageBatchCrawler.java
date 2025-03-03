@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rouleatt.demo.db.JdbcBatchExecutor;
 import com.rouleatt.demo.db.RestaurantIdGenerator;
 import com.rouleatt.demo.db.StackManager;
+import com.rouleatt.demo.db.TableManager;
 import com.rouleatt.demo.dto.RegionDto;
 import com.rouleatt.demo.utils.Region;
 import java.io.IOException;
@@ -26,13 +27,17 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 @Slf4j
 public class RestaurantImageBatchCrawler {
 
+    private static final int ALL_RESTAURANTS_COUNT = 800_000;
+
     private final StackManager stackManager;
+    private final TableManager tableManager;
     private final ObjectMapper mapper;
     private final JdbcBatchExecutor jdbcBatchExecutor;
     private final MenuReviewBatchCrawler menuReviewCrawler;
 
     public RestaurantImageBatchCrawler() {
         this.stackManager = new StackManager();
+        this.tableManager = new TableManager();
         this.mapper = new ObjectMapper();
         this.jdbcBatchExecutor = new JdbcBatchExecutor();
         this.menuReviewCrawler = new MenuReviewBatchCrawler();
@@ -42,13 +47,19 @@ public class RestaurantImageBatchCrawler {
 
         Stack<RegionDto> stack = new Stack<>();
 
-        if (stackManager.hasFirstRegionObject()) {
-            // 좌표 데이터가 백업되어있다면 백업 데이터부터(차단 시점의 좌표)부터 크롤링
+        // 음식점 데이터가 80만개 이상 존재한다면 크롤링이 완료되었으므로 크롤링하지 않음
+        if (tableManager.countRestaurantObject() >= ALL_RESTAURANTS_COUNT) {
+            return;
+        }
+        // 좌표 데이터가 백업되어있지 않다면 음식점 테이블을 드랍하고 처음부터 크롤링
+        else if (!tableManager.hasFirstRegionObject()) {
+            tableManager.dropAndCreateRestaurantTable();
+            Arrays.stream(Region.values()).forEach(region -> stack.push(RegionDto.from(region)));
+        }
+        // 좌표 데이터가 백업되어있다면 백업 데이터(차단 시점의 좌표들)부터 크롤링
+        else if (tableManager.hasFirstRegionObject()) {
             List<RegionDto> regionDtos = stackManager.getAllRegionObjectsOrderByIdDesc();
             regionDtos.stream().forEach(regionDto -> stack.push(regionDto));
-        } else {
-            // 좌표 데이터가 백업되어있지 않다면 처음부터 크롤링
-            Arrays.stream(Region.values()).forEach(region -> stack.push(RegionDto.from(region)));
         }
 
         while (!stack.isEmpty()) {

@@ -33,13 +33,13 @@ public class JdbcBatchExecutor {
     private static final List<ReviewImageDto> REVIEW_IMAGE_BATCH = new ArrayList<>();
     private static final List<BizHourDto> BIZ_HOUR_BATCH = new ArrayList<>();
 
-    private static final String RESTAURANT_INSERT_MANUAL_INCREMENT_SQL = "INSERT INTO restaurant (id, rid, name, coordinate, category, address, road_address) VALUES (?, ?, ?, ST_GeomFromText(?, 4326), ?, ?, ?)";
-    private static final String RESTAURANT_IMAGE_AUTO_INCREMENT_INSERT_SQL = "INSERT INTO restaurant_image (restaurant_id, url) VALUES (?, ?)";
-    private static final String MENU_INSERT_MANUAL_INCREMENT_SQL = "INSERT INTO menu (id, restaurant_id, name, price, is_recommended, description, menu_idx) VALUES (?, ?, ?, ?, ?, ?, ?)";
-    private static final String MENU_IMAGE_AUTO_INCREMENT_INSERT_SQL = "INSERT INTO menu_image (menu_id, image_url) VALUES (?, ?)";
-    private static final String REVIEW_INSERT_MANUAL_INCREMENT_SQL = "INSERT INTO review (id, restaurant_id, name, type, url, title, review_idx, content, profile_url, author_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    private static final String REVIEW_IMAGE_AUTO_INCREMENT_INSERT_SQL = "INSERT INTO review_image (review_id, thumbnail_url) VALUES (?, ?)";
-    private static final String BIZ_HOUR_AUTO_INCREMENT_INSERT_SQL = "INSERT INTO biz_hour (restaurant_id, day, biz_start, biz_end, last_order, break_start, break_end) VALUES (?, ?, ?, ?, ?, ?, ?)";
+    private static final String INSERT_RESTAURANT_MANUAL_INCREMENT_SQL = "INSERT INTO restaurant (id, rid, name, coordinate, category, address, road_address) VALUES (?, ?, ?, ST_GeomFromText(?, 4326), ?, ?, ?)";
+    private static final String INSERT_RESTAURANT_IMAGE_AUTO_INCREMENT_SQL = "INSERT INTO restaurant_image (restaurant_id, url) VALUES (?, ?)";
+    private static final String INSERT_MENU_MANUAL_INCREMENT_SQL = "INSERT INTO menu (id, restaurant_id, name, price, is_recommended, description, menu_idx) VALUES (?, ?, ?, ?, ?, ?, ?)";
+    private static final String INSERT_MENU_IMAGE_AUTO_INCREMENT_SQL = "INSERT INTO menu_image (menu_id, image_url) VALUES (?, ?)";
+    private static final String INSERT_REVIEW_MANUAL_INCREMENT_SQL = "INSERT INTO review (id, restaurant_id, name, type, url, title, review_idx, content, profile_url, author_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    private static final String INSERT_REVIEW_IMAGE_AUTO_INCREMENT_SQL = "INSERT INTO review_image (review_id, thumbnail_url) VALUES (?, ?)";
+    private static final String INSERT_BIZ_HOUR_AUTO_INCREMENT_SQL = "INSERT INTO biz_hour (restaurant_id, day, biz_start, biz_end, last_order, break_start, break_end) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
     public void addRestaurant(
             int restaurantPk,
@@ -129,13 +129,13 @@ public class JdbcBatchExecutor {
 
             conn.setAutoCommit(false);
 
-            try (PreparedStatement rtpstmt = conn.prepareStatement(RESTAURANT_INSERT_MANUAL_INCREMENT_SQL);
-                 PreparedStatement rtipstmt = conn.prepareStatement(RESTAURANT_IMAGE_AUTO_INCREMENT_INSERT_SQL);
-                 PreparedStatement mpstmt = conn.prepareStatement(MENU_INSERT_MANUAL_INCREMENT_SQL);
-                 PreparedStatement mipstmt = conn.prepareStatement(MENU_IMAGE_AUTO_INCREMENT_INSERT_SQL);
-                 PreparedStatement rvpstmt = conn.prepareStatement(REVIEW_INSERT_MANUAL_INCREMENT_SQL);
-                 PreparedStatement rvipstmt = conn.prepareStatement(REVIEW_IMAGE_AUTO_INCREMENT_INSERT_SQL);
-                 PreparedStatement bhpstmt = conn.prepareStatement(BIZ_HOUR_AUTO_INCREMENT_INSERT_SQL)) {
+            try (PreparedStatement rtpstmt = conn.prepareStatement(INSERT_RESTAURANT_MANUAL_INCREMENT_SQL);
+                 PreparedStatement rtipstmt = conn.prepareStatement(INSERT_RESTAURANT_IMAGE_AUTO_INCREMENT_SQL);
+                 PreparedStatement mpstmt = conn.prepareStatement(INSERT_MENU_MANUAL_INCREMENT_SQL);
+                 PreparedStatement mipstmt = conn.prepareStatement(INSERT_MENU_IMAGE_AUTO_INCREMENT_SQL);
+                 PreparedStatement rvpstmt = conn.prepareStatement(INSERT_REVIEW_MANUAL_INCREMENT_SQL);
+                 PreparedStatement rvipstmt = conn.prepareStatement(INSERT_REVIEW_IMAGE_AUTO_INCREMENT_SQL);
+                 PreparedStatement bhpstmt = conn.prepareStatement(INSERT_BIZ_HOUR_AUTO_INCREMENT_SQL)) {
 
                 for (RestaurantDto restaurantDto : RESTAURANT_BATCH) {
                     rtpstmt.setInt(1, restaurantDto.restaurantPk());

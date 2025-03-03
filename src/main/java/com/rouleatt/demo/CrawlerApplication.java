@@ -7,8 +7,8 @@ public class CrawlerApplication {
 
     public static void main(String[] args) {
 
-        TableManager initializer = new TableManager();
-        initializer.init();
+        TableManager tableManager = new TableManager();
+        tableManager.init();
 
         RestaurantImageBatchCrawler crawler = new RestaurantImageBatchCrawler();
         crawler.crawl();
