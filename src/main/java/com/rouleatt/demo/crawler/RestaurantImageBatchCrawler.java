@@ -28,6 +28,8 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 public class RestaurantImageBatchCrawler {
 
     private static final int ALL_RESTAURANTS_COUNT = 800_000;
+    private static int BATCH_COUNT = 0;
+    private static final int BATCH_SIZE = 50;
 
     private final StackManager stackManager;
     private final TableManager tableManager;
@@ -122,7 +124,16 @@ public class RestaurantImageBatchCrawler {
 
                     // 타겟팅한 행정구역이 아닐 경우 배치 삽입 호출할 필요없음
                     if (jdbcBatchExecutor.shouldBatchInsert()) {
-                        jdbcBatchExecutor.batchInsert();
+
+                        // 배치 사이즈에 도달하지 않았다면 배치 카운트 증가
+                        if (BATCH_COUNT < BATCH_SIZE) {
+                            BATCH_COUNT++;
+                        }
+                        // 배치 사이즈에 도달했다면 배치 삽입. 배치 카운트 초기화
+                        else {
+                            jdbcBatchExecutor.batchInsert();
+                            BATCH_COUNT = 0;
+                        }
                     }
 
                 }
@@ -141,9 +152,9 @@ public class RestaurantImageBatchCrawler {
             } catch (IOException e) {
                 log.error("[RI] IOException 발생. 네이버의 IP 차단으로 장애 발생 시점 스택 저장\n", e);
 
-                // 장애 발생 시점의 좌표를 저장
+                // IP 차단 시점의 좌표를 저장
                 stackManager.setRegionObject(regionDto);
-                // 장애 발생 시점의 스택의 모든 요소들을 저장
+                // IP 차단 시점의 스택의 모든 요소들을 저장
                 stackManager.setAllRegionObjects(stack);
 
             } catch (ParseException e) {
