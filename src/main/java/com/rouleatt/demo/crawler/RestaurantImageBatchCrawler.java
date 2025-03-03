@@ -1,15 +1,18 @@
 package com.rouleatt.demo.crawler;
 
 import static com.rouleatt.demo.utils.CrawlerUtils.*;
-import static java.lang.Integer.MAX_VALUE;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rouleatt.demo.db.JdbcBatchExecutor;
 import com.rouleatt.demo.db.RestaurantIdGenerator;
+import com.rouleatt.demo.db.StackManager;
+import com.rouleatt.demo.dto.RegionDto;
 import com.rouleatt.demo.utils.Region;
 import java.io.IOException;
 import java.net.URI;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Stack;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
@@ -23,137 +26,120 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 @Slf4j
 public class RestaurantImageBatchCrawler {
 
+    private final StackManager stackManager;
     private final ObjectMapper mapper;
     private final JdbcBatchExecutor jdbcBatchExecutor;
     private final MenuReviewBatchCrawler menuReviewCrawler;
 
     public RestaurantImageBatchCrawler() {
+        this.stackManager = new StackManager();
         this.mapper = new ObjectMapper();
         this.jdbcBatchExecutor = new JdbcBatchExecutor();
         this.menuReviewCrawler = new MenuReviewBatchCrawler();
     }
 
-    public void crawlAll() {
-        for (Region region : Region.values()) {
-            String fullName = region.getFullName();
-            String shortName = region.getShortName();
-            double minX = region.getMinX();
-            double minY = region.getMinY();
-            double maxX = region.getMaxX();
-            double maxY = region.getMaxY();
-            crawl(fullName, shortName, minX, minY, maxX, maxY);
-        }
-    }
+    public void crawl() {
 
-    private void crawl(
-            String fullName,
-            String shortName,
-            double minX,
-            double minY,
-            double maxX,
-            double maxY
-    ) {
-        Stack<double[]> stack = new Stack<>();
-        stack.push(new double[]{minX, minY, maxX, maxY});
+        Stack<RegionDto> stack = new Stack<>();
+
+        if (stackManager.hasFirstRegionObject()) {
+            // 좌표 데이터가 백업되어있다면 백업 데이터부터(장애 발생 시점의 좌표)부터 크롤링
+            List<RegionDto> regionDtos = stackManager.getAllRegionObjectsOrderByIdDesc();
+            regionDtos.stream().forEach(regionDto -> stack.push(regionDto));
+        } else {
+            // 좌표 데이터가 백업되어있지 않다면 처음부터 크롤링
+            Arrays.stream(Region.values()).forEach(region -> stack.push(RegionDto.from(region)));
+        }
 
         while (!stack.isEmpty()) {
 
-            double[] bounds = stack.pop();
-            double currentMinX = bounds[0];
-            double currentMinY = bounds[1];
-            double currentMaxX = bounds[2];
-            double currentMaxY = bounds[3];
+            RegionDto regionDto = stack.pop();
 
-            int retryCount = 0;
-            boolean success = false;
+            String fullName = regionDto.fullName();
+            String shortName = regionDto.shortName();
+            double minX = regionDto.minX();
+            double minY = regionDto.minY();
+            double maxX = regionDto.maxX();
+            double maxY = regionDto.maxY();
 
-            while (retryCount < MAX_VALUE && !success) {
+            String response = null;
 
-                try {
-                    URI uri = setUri(currentMinX, currentMinY, currentMaxX, currentMaxY);
-                    String response = sendHttpRequest(uri);
+            try {
+                URI uri = setUri(minX, minY, maxX, maxY);
+                response = sendHttpRequest(uri);
 
-                    Thread.sleep(1000);
+                Thread.sleep(1000);
 
-                    JsonNode rootNode = mapper.readTree(response);
-                    JsonNode resultNode = rootNode.path("result");
-                    JsonNode metaNode = resultNode.path("meta");
-                    JsonNode countNode = metaNode.path("count");
-                    JsonNode restaurantsNode = resultNode.path("list");
+                JsonNode rootNode = mapper.readTree(response);
+                JsonNode resultNode = rootNode.path("result");
+                JsonNode metaNode = resultNode.path("meta");
+                JsonNode countNode = metaNode.path("count");
+                JsonNode restaurantsNode = resultNode.path("list");
 
-                    // 크롤링한 음식점이 0개 초과 100개 미만이라면
-                    if (0 < countNode.asInt() && countNode.asInt() < 100) {
+                // 크롤링한 음식점이 0개 초과 100개 미만이라면
+                if (0 < countNode.asInt() && countNode.asInt() < 100) {
 
-                        for (JsonNode restaurantNode : restaurantsNode) {
+                    for (JsonNode restaurantNode : restaurantsNode) {
 
-                            // 타겟팅한 행정구역이라면
-                            if (isTarget(checkNull(restaurantNode.path("address").asText()), fullName, shortName)) {
+                        // 주소가 타겟팅한 행정구역이라면
+                        String address = checkNull(restaurantNode.path("address").asText());
 
-                                int restaurantPk = RestaurantIdGenerator.getNextId();
-                                String restaurantId = restaurantNode.path("id").asText();
+                        if (isTarget(address, fullName, shortName)) {
 
-                                // 음식점 크롤링 및 배치
-                                jdbcBatchExecutor.addRestaurant(
-                                        restaurantPk,
-                                        restaurantId,
-                                        restaurantNode.path("name").asText(), // cant be null
-                                        Double.parseDouble(restaurantNode.path("x").asText()), // cant be null
-                                        Double.parseDouble(restaurantNode.path("y").asText()), // cant be null
-                                        checkNull(restaurantNode.path("categoryName").asText()),
-                                        checkNull(restaurantNode.path("address").asText()),
-                                        checkNull(restaurantNode.path("roadAddress").asText()));
+                            int restaurantPk = RestaurantIdGenerator.getNextId();
+                            String restaurantId = restaurantNode.path("id").asText();
 
-                                // 음식점 이미지 크롤링 및 배치
-                                for (JsonNode imageNode : restaurantNode.path("images")) {
-                                    jdbcBatchExecutor.addRestaurantImage(restaurantPk, imageNode.asText());
-                                }
+                            // 음식점 크롤링 및 배치
+                            jdbcBatchExecutor.addRestaurant(
+                                    restaurantPk,
+                                    restaurantId,
+                                    restaurantNode.path("name").asText(), // cant be null
+                                    Double.parseDouble(restaurantNode.path("x").asText()), // cant be null
+                                    Double.parseDouble(restaurantNode.path("y").asText()), // cant be null
+                                    checkNull(restaurantNode.path("categoryName").asText()),
+                                    checkNull(restaurantNode.path("address").asText()),
+                                    checkNull(restaurantNode.path("roadAddress").asText()));
 
-                                menuReviewCrawler.crawl(restaurantPk, restaurantId);
+                            // 음식점 이미지 크롤링 및 배치
+                            for (JsonNode imageNode : restaurantNode.path("images")) {
+                                jdbcBatchExecutor.addRestaurantImage(restaurantPk, imageNode.asText());
                             }
+
+                            menuReviewCrawler.crawl(stack, regionDto, restaurantPk, restaurantId);
                         }
-
-                        // 타겟팅한 행정구역이 아닐 경우 배치 삽입 호출할 필요없음
-                        if (jdbcBatchExecutor.shouldBatchInsert()) {
-                            jdbcBatchExecutor.batchInsert();
-                        }
-
-                    }
-                    // 크롤링한 음식점이 100개 이상이라면 영역을 쪼개기 위해 스택 푸시
-                    else if (countNode.asInt() >= 100) {
-
-                        double midX = (currentMinX + currentMaxX) / 2;
-                        double midY = (currentMinY + currentMaxY) / 2;
-
-                        stack.push(new double[]{midX, currentMinY, currentMaxX, midY}); // 4
-                        stack.push(new double[]{currentMinX, currentMinY, midX, midY}); // 3
-                        stack.push(new double[]{midX, midY, currentMaxX, currentMaxY}); // 2
-                        stack.push(new double[]{currentMinX, midY, midX, currentMaxY}); // 1
                     }
 
-                    // 크롤링 성공시 반복문 종료
-                    success = true;
-                    break;
+                    // 타겟팅한 행정구역이 아닐 경우 배치 삽입 호출할 필요없음
+                    if (jdbcBatchExecutor.shouldBatchInsert()) {
+                        jdbcBatchExecutor.batchInsert();
+                    }
 
-                } catch (IOException e) {
-                    retryCount++;
-                    log.error("[RI] IOException 발생 (재시도 횟수 {})", retryCount, e);
-                } catch (Exception e) {
-                    retryCount++;
-                    log.error("[RI] Exception 발생 (재시도 횟수 {})", retryCount, e);
                 }
+                // 크롤링한 음식점이 100개 이상이라면 영역을 쪼개기 위해 스택 푸시
+                else if (countNode.asInt() >= 100) {
 
-                // 크롤링 실패시 일정시간 슬립 후 재시도
-                if (!success) {
-                    try {
-                        Thread.sleep(2_000 * retryCount);
-                    } catch (InterruptedException ex) {
-                        Thread.currentThread().interrupt();
-                    }
+                    double midX = (minX + maxX) / 2;
+                    double midY = (minY + maxY) / 2;
+
+                    stack.push(RegionDto.of(fullName, shortName, midX, minY, maxX, midY));
+                    stack.push(RegionDto.of(fullName, shortName, minX, minY, midX, midY));
+                    stack.push(RegionDto.of(fullName, shortName, midX, midY, maxX, maxY));
+                    stack.push(RegionDto.of(fullName, shortName, minX, midY, midX, maxY));
+
                 }
-            }
+            } catch (IOException e) {
+                log.error("[RI] IOException 발생. 네이버의 IP 차단으로 장애 발생 시점 스택 저장\n", e);
 
-            if (!success) {
-                log.error("[RI] 크롤링 실패 : 최대 재시도 횟수 초과");
+                // 장애 발생 시점의 좌표를 저장
+                stackManager.setRegionObject(regionDto);
+                // 장애 발생 시점의 스택의 모든 요소들을 저장
+                stackManager.setAllRegionObjects(stack);
+
+            } catch (ParseException e) {
+                log.error("[RI] ParseException 발생\n 응답 = {}\n", response);
+            } catch (InterruptedException e) {
+                log.error("[RI] InterruptedException 발생. 크롤링 종료");
+                return;
             }
         }
     }
