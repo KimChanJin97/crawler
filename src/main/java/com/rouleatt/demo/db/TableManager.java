@@ -117,7 +117,9 @@ public class TableManager {
         try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
              PreparedStatement pstmt = conn.prepareStatement(COUNT_RESTAURANT_TABLE_SQL);
              ResultSet rs = pstmt.executeQuery()) {
-            return rs.getInt(1);
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
