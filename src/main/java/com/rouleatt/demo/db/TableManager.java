@@ -27,7 +27,7 @@ public class TableInitializer {
                 + "category VARCHAR(50), "
                 + "address VARCHAR(255), "
                 + "road_address VARCHAR(255), "
-                + "SPATIAL INDEX idx_location (coordinate)"
+                + "SPATIAL INDEX idx_location (coordinate)" // 인덱스
                 + ");";
 
         String createRestaurantImageTableSql = "CREATE TABLE IF NOT EXISTS restaurant_image ("
