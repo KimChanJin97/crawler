@@ -152,6 +152,9 @@ public class RestaurantImageBatchCrawler {
             } catch (IOException e) {
                 log.error("[RI] IOException 발생. 네이버의 IP 차단으로 장애 발생 시점 스택 저장\n", e);
 
+                // 배치 삽입
+                jdbcBatchExecutor.batchInsert();
+
                 // IP 차단 시점의 좌표를 저장
                 stackManager.setRegionObject(regionDto);
                 // IP 차단 시점의 스택의 모든 요소들을 저장
