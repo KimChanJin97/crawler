@@ -5,7 +5,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
 
-public class TableInitializer {
+public class TableManager {
 
     private static final String JDBC_URL = EnvLoader.get("JDBC_URL");
     private static final String USERNAME = EnvLoader.get("USERNAME");
@@ -13,11 +13,15 @@ public class TableInitializer {
 
     public void init() {
 
-        String[] dropAndCreateDatabaseSqls = {
-                "DROP DATABASE IF EXISTS test;",
-                "CREATE DATABASE test;",
-                "USE test;"
-        };
+        String createRegionTableSql = "CREATE TABLE IF NOT EXISTS region ("
+                + "id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
+                + "full_name VARCHAR(10) NOT NULL, "
+                + "short_name VARCHAR(10) NOT NULL, "
+                + "min_x DOUBLE(13, 10) NOT NULL, "
+                + "min_y DOUBLE(13, 10) NOT NULL, "
+                + "max_x DOUBLE(13, 10) NOT NULL, "
+                + "max_y DOUBLE(13, 10) NOT NULL "
+                + ");";
 
         String createRestaurantTableSql = "CREATE TABLE IF NOT EXISTS restaurant ("
                 + "id INT NOT NULL PRIMARY KEY, " // 배치를 위해 AUTO_INCREMENT 제거
@@ -92,9 +96,7 @@ public class TableInitializer {
         try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
              Statement stmt = conn.createStatement()) {
 
-            for (String dropAndCreateDatabaseSql : dropAndCreateDatabaseSqls) {
-                stmt.execute(dropAndCreateDatabaseSql);
-            }
+            stmt.execute(createRegionTableSql);
 
             stmt.execute(createRestaurantTableSql);
             stmt.execute(createRestaurantImageTableSql);
