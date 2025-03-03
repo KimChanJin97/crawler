@@ -53,9 +53,9 @@ public class RestaurantImageBatchCrawler {
         if (tableManager.countRestaurantObject() >= ALL_RESTAURANTS_COUNT) {
             return;
         }
-        // 좌표 데이터가 백업되어있지 않다면 음식점 테이블을 드랍하고 처음부터 크롤링
+        // 좌표 데이터가 백업되어있지 않다면 데이터베이스 드랍하고 처음부터 크롤링
         else if (!tableManager.hasFirstRegionObject()) {
-            tableManager.dropAndCreateRestaurantTable();
+            tableManager.init();
             Arrays.stream(Region.values()).forEach(region -> stack.push(RegionDto.from(region)));
         }
         // 좌표 데이터가 백업되어있다면 백업 데이터(차단 시점의 좌표들)부터 크롤링

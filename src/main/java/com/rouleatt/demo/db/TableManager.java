@@ -18,7 +18,9 @@ public class TableManager {
 
     private static final String COUNT_RESTAURANT_TABLE_SQL = "SELECT COUNT(*) FROM restaurant";
 
-    private static final String DROP_RESTAURANT_TABLE_SQL = "DROP TABLE IF EXISTS restaurant";
+    private static final String DROP_DATABASE_SQL = "DROP DATABASE IF EXISTS test;";
+    private static final String CREATE_DATABASE_SQL = "CREATE DATABASE test;";
+    private static final String USE_DATABASE_SQL = "USE test;";
 
     private static final String CREATE_RESTAURANT_TABLE_SQL = "CREATE TABLE IF NOT EXISTS restaurant ("
             + "id INT NOT NULL PRIMARY KEY, " // 배치를 위해 AUTO_INCREMENT 제거
@@ -122,23 +124,14 @@ public class TableManager {
         return 0;
     }
 
-    public void dropAndCreateRestaurantTable() {
-
-        try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
-             Statement stmt = conn.createStatement()) {
-
-            stmt.execute(DROP_RESTAURANT_TABLE_SQL);
-            stmt.execute(CREATE_RESTAURANT_TABLE_SQL);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
     public void init() {
 
         try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
              Statement stmt = conn.createStatement()) {
+
+            stmt.execute(DROP_DATABASE_SQL);
+            stmt.execute(CREATE_DATABASE_SQL);
+            stmt.execute(USE_DATABASE_SQL);
 
             stmt.execute(CREATE_REGION_TABLE_SQL);
 
