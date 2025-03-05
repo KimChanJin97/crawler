@@ -35,6 +35,9 @@ import org.jsoup.nodes.Document;
 @Slf4j
 public class MenuReviewBatchCrawler {
 
+    private static int BATCH_COUNT = 0;
+    private static final int BATCH_SIZE = 30;
+
     private final MenuReviewBackupManager backupManager;
     private final TableManager tableManager;
     private final MenuReviewBatchExecutor batchExecutor;
@@ -153,6 +156,19 @@ public class MenuReviewBatchCrawler {
                                     checkNull(businessHour.path("breakHours").path(0).path("end").asText()),
                                     checkNull(businessHour.path("lastOrderTimes").path(0).path("time").asText())
                             );
+                        }
+                    }
+
+                    if (batchExecutor.shouldBatchInsert()) {
+
+                        // 배치 사이즈에 도달하지 않았다면 배치 카운트 증가
+                        if (BATCH_COUNT < BATCH_SIZE) {
+                            BATCH_COUNT++;
+                        }
+                        // 배치 사이즈에 도달했다면 배치 삽입. 배치 카운트 초기화
+                        else {
+                            batchExecutor.batchInsert();
+                            BATCH_COUNT = 0;
                         }
                     }
                 }
