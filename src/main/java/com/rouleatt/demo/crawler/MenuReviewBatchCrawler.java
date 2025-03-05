@@ -171,6 +171,7 @@ public class MenuReviewBatchCrawler {
                             BATCH_COUNT = 0;
                         }
                     }
+
                 }
             } catch (IOException e) {
                 log.error("[MR] IOException 발생. 차단 시점의 rpk, rid 저장\n", e);
