@@ -1,4 +1,4 @@
-package com.rouleatt.demo.db;
+package com.rouleatt.demo.batch;
 
 import com.rouleatt.demo.dto.BizHourDto;
 import com.rouleatt.demo.dto.MenuDto;

@@ -1,4 +1,4 @@
-package com.rouleatt.demo.db;
+package com.rouleatt.demo.batch;
 
 import com.rouleatt.demo.utils.EnvLoader;
 import java.sql.Connection;
@@ -11,18 +11,21 @@ public class TableManager {
     private static final String USERNAME = EnvLoader.get("USERNAME");
     private static final String PASSWORD = EnvLoader.get("PASSWORD");
 
-    private static final String DROP_REGION_BACKUP_TABLE_SQL = "DROP TABLE IF EXISTS region_backup";
+    private static final String DROP_DATABASE_SQL = "DROP DATABASE IF EXISTS rouleatt";
+    private static final String CREATE_DATABASE_SQL = "CREATE DATABASE IF NOT EXISTS rouleatt";
+
+    private static final String DROP_RI_BACKUP_TABLE_SQL = "DROP TABLE IF EXISTS ri_backup";
     private static final String DROP_RESTAURANT_TABLE_SQL = "DROP TABLE IF EXISTS restaurant";
     private static final String DROP_RESTAURANT_IMAGE_TABLE_SQL = "DROP TABLE IF EXISTS restaurant_image";
 
-    private static final String DROP_MENU_BACKUP_TABLE_SQL = "DROP TABLE IF EXISTS menu_backup";
+    private static final String DROP_MR_BACKUP_TABLE_SQL = "DROP TABLE IF EXISTS mr_backup";
     private static final String DROP_MENU_TABLE_SQL = "DROP TABLE IF EXISTS menu";
     private static final String DROP_MENU_IMAGE_TABLE_SQL = "DROP TABLE IF EXISTS menu_image";
     private static final String DROP_REVIEW_TABLE_SQL = "DROP TABLE IF EXISTS review";
     private static final String DROP_REVIEW_IMAGE_TABLE_SQL = "DROP TABLE IF EXISTS review_image";
     private static final String DROP_BIZ_HOUR_TABLE_SQL = "DROP TABLE IF EXISTS biz_hour";
 
-    private static final String CREATE_REGION_BACKUP_TABLE_SQL = "CREATE TABLE IF NOT EXISTS region_backup ("
+    private static final String CREATE_RI_BACKUP_TABLE_SQL = "CREATE TABLE IF NOT EXISTS ri_backup ("
             + "id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
             + "full_name VARCHAR(10) NOT NULL, "
             + "short_name VARCHAR(10) NOT NULL, "
@@ -33,7 +36,7 @@ public class TableManager {
             + ")";
 
     private static final String CREATE_RESTAURANT_TABLE_SQL = "CREATE TABLE IF NOT EXISTS restaurant ("
-            + "id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
+            + "id INT NOT NULL PRIMARY KEY, "
             + "rid VARCHAR(25) NOT NULL, "
             + "name VARCHAR(50) NOT NULL, "
             + "coordinate POINT NOT NULL SRID 4326, "
@@ -50,14 +53,14 @@ public class TableManager {
             + "FOREIGN KEY (restaurant_id) REFERENCES restaurant(id) ON DELETE CASCADE"
             + ")";
 
-    private static final String CREATE_MENU_BACKUP_TABLE_SQL = "CREATE TABLE IF NOT EXISTS menu_backup ("
+    private static final String CREATE_MR_BACKUP_TABLE_SQL = "CREATE TABLE IF NOT EXISTS mr_backup ("
             + "id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
             + "rpk INT NOT NULL, "
             + "rid VARCHAR(10) NOT NULL "
             + ")";
 
     private static final String CREATE_MENU_TABLE_SQL = "CREATE TABLE IF NOT EXISTS menu ("
-            + "id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
+            + "id INT NOT NULL PRIMARY KEY, "
             + "restaurant_id INT NOT NULL, "
             + "name VARCHAR(255), "
             + "price VARCHAR(50), "
@@ -75,7 +78,7 @@ public class TableManager {
             + ")";
 
     private static final String CREATE_REVIEW_TABLE_SQL = "CREATE TABLE IF NOT EXISTS review ("
-            + "id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
+            + "id INT NOT NULL PRIMARY KEY, "
             + "restaurant_id INT NOT NULL, "
             + "name VARCHAR(100), "
             + "type VARCHAR(10), "
@@ -108,16 +111,48 @@ public class TableManager {
             + "FOREIGN KEY (restaurant_id) REFERENCES restaurant(id) ON DELETE CASCADE"
             + ")";
 
-    public void dropAndCreateRestaurantAndImageTable() {
+    public void dropAndCreateAllTables() {
+        try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
+             Statement stmt = conn.createStatement()) {
 
+            stmt.execute(DROP_DATABASE_SQL);
+            stmt.execute(CREATE_DATABASE_SQL);
+
+            stmt.execute(DROP_BIZ_HOUR_TABLE_SQL);
+            stmt.execute(DROP_REVIEW_IMAGE_TABLE_SQL);
+            stmt.execute(DROP_REVIEW_TABLE_SQL);
+            stmt.execute(DROP_MENU_IMAGE_TABLE_SQL);
+            stmt.execute(DROP_MENU_TABLE_SQL);
+            stmt.execute(DROP_MR_BACKUP_TABLE_SQL);
+
+            stmt.execute(DROP_RESTAURANT_IMAGE_TABLE_SQL);
+            stmt.execute(DROP_RESTAURANT_TABLE_SQL);
+            stmt.execute(DROP_RI_BACKUP_TABLE_SQL);
+
+            stmt.execute(CREATE_RI_BACKUP_TABLE_SQL);
+            stmt.execute(CREATE_RESTAURANT_TABLE_SQL);
+            stmt.execute(CREATE_RESTAURANT_IMAGE_TABLE_SQL);
+            stmt.execute(CREATE_MR_BACKUP_TABLE_SQL);
+            stmt.execute(CREATE_MENU_TABLE_SQL);
+            stmt.execute(CREATE_MENU_IMAGE_TABLE_SQL);
+            stmt.execute(CREATE_REVIEW_TABLE_SQL);
+            stmt.execute(CREATE_REVIEW_IMAGE_TABLE_SQL);
+            stmt.execute(CREATE_BIZ_HOUR_TABLE_SQL);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void dropAndCreateRestaurantAndImageTable() {
         try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
              Statement stmt = conn.createStatement()) {
 
             stmt.execute(DROP_RESTAURANT_IMAGE_TABLE_SQL);
             stmt.execute(DROP_RESTAURANT_TABLE_SQL);
-            stmt.execute(DROP_REGION_BACKUP_TABLE_SQL);
+            stmt.execute(DROP_RI_BACKUP_TABLE_SQL);
 
-            stmt.execute(CREATE_REGION_BACKUP_TABLE_SQL);
+            stmt.execute(CREATE_RI_BACKUP_TABLE_SQL);
             stmt.execute(CREATE_RESTAURANT_TABLE_SQL);
             stmt.execute(CREATE_RESTAURANT_IMAGE_TABLE_SQL);
 
@@ -135,9 +170,9 @@ public class TableManager {
             stmt.execute(DROP_REVIEW_TABLE_SQL);
             stmt.execute(DROP_MENU_IMAGE_TABLE_SQL);
             stmt.execute(DROP_MENU_TABLE_SQL);
-            stmt.execute(DROP_MENU_BACKUP_TABLE_SQL);
+            stmt.execute(DROP_MR_BACKUP_TABLE_SQL);
 
-            stmt.execute(CREATE_MENU_BACKUP_TABLE_SQL);
+            stmt.execute(CREATE_MR_BACKUP_TABLE_SQL);
             stmt.execute(CREATE_MENU_TABLE_SQL);
             stmt.execute(CREATE_MENU_IMAGE_TABLE_SQL);
             stmt.execute(CREATE_REVIEW_TABLE_SQL);

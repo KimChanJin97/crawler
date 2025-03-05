@@ -4,11 +4,12 @@ import static com.rouleatt.demo.utils.CrawlerUtils.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rouleatt.demo.db.JdbcBatchExecutor;
-import com.rouleatt.demo.db.RestaurantIdGenerator;
-import com.rouleatt.demo.db.StackManager;
-import com.rouleatt.demo.db.TableManager;
+import com.rouleatt.demo.batch.JdbcBatchExecutor;
+import com.rouleatt.demo.batch.RestaurantIdGenerator;
+import com.rouleatt.demo.backup.RestaurantImageBackupManager;
+import com.rouleatt.demo.batch.TableManager;
 import com.rouleatt.demo.dto.RegionDto;
+import com.rouleatt.demo.dto.RestaurantImageBackupDto;
 import com.rouleatt.demo.utils.Region;
 import java.io.IOException;
 import java.net.URI;
@@ -27,18 +28,17 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 @Slf4j
 public class RestaurantImageBatchCrawler {
 
-    private static final int ALL_RESTAURANTS_COUNT = 800_000;
     private static int BATCH_COUNT = 0;
-    private static final int BATCH_SIZE = 50;
+    private static final int BATCH_SIZE = 2;
 
-    private final StackManager stackManager;
+    private final RestaurantImageBackupManager restaurantImageBackupManager;
     private final TableManager tableManager;
     private final ObjectMapper mapper;
     private final JdbcBatchExecutor jdbcBatchExecutor;
     private final MenuReviewBatchCrawler menuReviewCrawler;
 
     public RestaurantImageBatchCrawler() {
-        this.stackManager = new StackManager();
+        this.restaurantImageBackupManager = new RestaurantImageBackupManager();
         this.tableManager = new TableManager();
         this.mapper = new ObjectMapper();
         this.jdbcBatchExecutor = new JdbcBatchExecutor();
@@ -47,35 +47,32 @@ public class RestaurantImageBatchCrawler {
 
     public void crawl() {
 
-        Stack<RegionDto> stack = new Stack<>();
+        Stack<RestaurantImageBackupDto> stack = new Stack<>();
 
-        // 음식점 데이터가 80만개 이상 존재한다면 크롤링이 완료되었으므로 크롤링하지 않음
-        if (tableManager.countRestaurantObject() >= ALL_RESTAURANTS_COUNT) {
-            return;
+        // 좌표 데이터가 백업되어있다면 백업 데이터(차단 시점의 좌표들)부터 크롤링
+        if (restaurantImageBackupManager.hasFirstRiBackup()) {
+            log.info("IP 차단 시점의 좌표부터 크롤링 시작");
+            List<RestaurantImageBackupDto> backupDtos = restaurantImageBackupManager.getAllRiBackupsOrderByIdDesc();
+            restaurantImageBackupManager.dropAndCreateRiBackupTable();
+            backupDtos.forEach(backupDto -> stack.push(backupDto));
         }
         // 좌표 데이터가 백업되어있지 않다면 데이터베이스 드랍하고 처음부터 크롤링
-        else if (!tableManager.hasFirstRegionObject()) {
+        else {
             log.info("처음부터 크롤링 시작");
-            tableManager.init();
-            Arrays.stream(Region.values()).forEach(region -> stack.push(RegionDto.from(region)));
-        }
-        // 좌표 데이터가 백업되어있다면 백업 데이터(차단 시점의 좌표들)부터 크롤링
-        else if (tableManager.hasFirstRegionObject()) {
-            log.info("IP 차단 시점의 좌표부터 크롤링 시작");
-            List<RegionDto> regionDtos = stackManager.getAllRegionObjectsOrderByIdDesc();
-            regionDtos.stream().forEach(regionDto -> stack.push(regionDto));
+            tableManager.dropAndCreateAllTables();
+            Arrays.stream(Region.values()).forEach(region -> stack.push(RestaurantImageBackupDto.from(region)));
         }
 
         while (!stack.isEmpty()) {
 
-            RegionDto regionDto = stack.pop();
+            RestaurantImageBackupDto backupDto = stack.pop();
 
-            String fullName = regionDto.fullName();
-            String shortName = regionDto.shortName();
-            double minX = regionDto.minX();
-            double minY = regionDto.minY();
-            double maxX = regionDto.maxX();
-            double maxY = regionDto.maxY();
+            String fullName = backupDto.fullName();
+            String shortName = backupDto.shortName();
+            double minX = backupDto.minX();
+            double minY = backupDto.minY();
+            double maxX = backupDto.maxX();
+            double maxY = backupDto.maxY();
 
             String response = null;
 
@@ -108,9 +105,9 @@ public class RestaurantImageBatchCrawler {
                             jdbcBatchExecutor.addRestaurant(
                                     restaurantPk,
                                     restaurantId,
-                                    restaurantNode.path("name").asText(), // cant be null
-                                    Double.parseDouble(restaurantNode.path("x").asText()), // cant be null
-                                    Double.parseDouble(restaurantNode.path("y").asText()), // cant be null
+                                    restaurantNode.path("name").asText(),
+                                    Double.parseDouble(restaurantNode.path("x").asText()),
+                                    Double.parseDouble(restaurantNode.path("y").asText()),
                                     checkNull(restaurantNode.path("categoryName").asText()),
                                     checkNull(restaurantNode.path("address").asText()),
                                     checkNull(restaurantNode.path("roadAddress").asText()));
@@ -119,8 +116,6 @@ public class RestaurantImageBatchCrawler {
                             for (JsonNode imageNode : restaurantNode.path("images")) {
                                 jdbcBatchExecutor.addRestaurantImage(restaurantPk, imageNode.asText());
                             }
-
-                            menuReviewCrawler.crawl(stack, regionDto, restaurantPk, restaurantId);
                         }
                     }
 
@@ -145,28 +140,29 @@ public class RestaurantImageBatchCrawler {
                     double midX = (minX + maxX) / 2;
                     double midY = (minY + maxY) / 2;
 
-                    stack.push(RegionDto.of(fullName, shortName, midX, minY, maxX, midY));
-                    stack.push(RegionDto.of(fullName, shortName, minX, minY, midX, midY));
-                    stack.push(RegionDto.of(fullName, shortName, midX, midY, maxX, maxY));
-                    stack.push(RegionDto.of(fullName, shortName, minX, midY, midX, maxY));
+                    stack.push(RestaurantImageBackupDto.of(fullName, shortName, midX, minY, maxX, midY));
+                    stack.push(RestaurantImageBackupDto.of(fullName, shortName, minX, minY, midX, midY));
+                    stack.push(RestaurantImageBackupDto.of(fullName, shortName, midX, midY, maxX, maxY));
+                    stack.push(RestaurantImageBackupDto.of(fullName, shortName, minX, midY, midX, maxY));
 
                 }
             } catch (IOException e) {
-                log.error("[RI] IOException 발생. IP 차단 시점 모든 좌표 저장\n", e);
+                log.error("[RI] IOException 발생. IP 차단 시점의 행정구역 이름과 좌표 저장\n", e);
 
                 // 배치 삽입
                 jdbcBatchExecutor.batchInsert();
 
                 // IP 차단 시점의 좌표를 저장
-                stackManager.setRegionObject(regionDto);
+                restaurantImageBackupManager.setRiBackup(backupDto);
                 // IP 차단 시점의 스택의 모든 요소들을 저장
-                stackManager.setAllRegionObjects(stack);
+                restaurantImageBackupManager.setAllRiBackups(stack);
 
                 log.info("백업 완료");
                 return;
 
             } catch (ParseException e) {
                 log.error("[RI] ParseException 발생\n 응답 = {}\n", response);
+                return;
             } catch (InterruptedException e) {
                 log.error("[RI] InterruptedException 발생. 크롤링 종료");
                 return;
