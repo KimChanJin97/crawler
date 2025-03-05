@@ -4,11 +4,10 @@ import static com.rouleatt.demo.utils.CrawlerUtils.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rouleatt.demo.batch.JdbcBatchExecutor;
+import com.rouleatt.demo.batch.RestaurantImageBatchExecutor;
 import com.rouleatt.demo.batch.RestaurantIdGenerator;
 import com.rouleatt.demo.backup.RestaurantImageBackupManager;
 import com.rouleatt.demo.batch.TableManager;
-import com.rouleatt.demo.dto.RegionDto;
 import com.rouleatt.demo.dto.RestaurantImageBackupDto;
 import com.rouleatt.demo.utils.Region;
 import java.io.IOException;
@@ -31,18 +30,16 @@ public class RestaurantImageBatchCrawler {
     private static int BATCH_COUNT = 0;
     private static final int BATCH_SIZE = 2;
 
-    private final RestaurantImageBackupManager restaurantImageBackupManager;
+    private final RestaurantImageBackupManager backupManager;
     private final TableManager tableManager;
+    private final RestaurantImageBatchExecutor batchExecutor;
     private final ObjectMapper mapper;
-    private final JdbcBatchExecutor jdbcBatchExecutor;
-    private final MenuReviewBatchCrawler menuReviewCrawler;
 
     public RestaurantImageBatchCrawler() {
-        this.restaurantImageBackupManager = new RestaurantImageBackupManager();
+        this.backupManager = new RestaurantImageBackupManager();
         this.tableManager = new TableManager();
         this.mapper = new ObjectMapper();
-        this.jdbcBatchExecutor = new JdbcBatchExecutor();
-        this.menuReviewCrawler = new MenuReviewBatchCrawler();
+        this.batchExecutor = new RestaurantImageBatchExecutor();
     }
 
     public void crawl() {
@@ -50,10 +47,10 @@ public class RestaurantImageBatchCrawler {
         Stack<RestaurantImageBackupDto> stack = new Stack<>();
 
         // 좌표 데이터가 백업되어있다면 백업 데이터(차단 시점의 좌표들)부터 크롤링
-        if (restaurantImageBackupManager.hasFirstRiBackup()) {
+        if (backupManager.hasFirstRiBackup()) {
             log.info("IP 차단 시점의 좌표부터 크롤링 시작");
-            List<RestaurantImageBackupDto> backupDtos = restaurantImageBackupManager.getAllRiBackupsOrderByIdDesc();
-            restaurantImageBackupManager.dropAndCreateRiBackupTable();
+            List<RestaurantImageBackupDto> backupDtos = backupManager.getAllRiBackupsOrderByIdDesc();
+            backupManager.dropAndCreateRiBackupTable();
             backupDtos.forEach(backupDto -> stack.push(backupDto));
         }
         // 좌표 데이터가 백업되어있지 않다면 데이터베이스 드랍하고 처음부터 크롤링
@@ -102,7 +99,7 @@ public class RestaurantImageBatchCrawler {
                             String restaurantId = restaurantNode.path("id").asText();
 
                             // 음식점 크롤링 및 배치
-                            jdbcBatchExecutor.addRestaurant(
+                            batchExecutor.addRestaurant(
                                     restaurantPk,
                                     restaurantId,
                                     restaurantNode.path("name").asText(),
@@ -114,13 +111,13 @@ public class RestaurantImageBatchCrawler {
 
                             // 음식점 이미지 크롤링 및 배치
                             for (JsonNode imageNode : restaurantNode.path("images")) {
-                                jdbcBatchExecutor.addRestaurantImage(restaurantPk, imageNode.asText());
+                                batchExecutor.addRestaurantImage(restaurantPk, imageNode.asText());
                             }
                         }
                     }
 
                     // 타겟팅한 행정구역이 아닐 경우 배치 삽입 호출할 필요없음
-                    if (jdbcBatchExecutor.shouldBatchInsert()) {
+                    if (batchExecutor.shouldBatchInsert()) {
 
                         // 배치 사이즈에 도달하지 않았다면 배치 카운트 증가
                         if (BATCH_COUNT < BATCH_SIZE) {
@@ -128,7 +125,7 @@ public class RestaurantImageBatchCrawler {
                         }
                         // 배치 사이즈에 도달했다면 배치 삽입. 배치 카운트 초기화
                         else {
-                            jdbcBatchExecutor.batchInsert();
+                            batchExecutor.batchInsert();
                             BATCH_COUNT = 0;
                         }
                     }
@@ -150,12 +147,12 @@ public class RestaurantImageBatchCrawler {
                 log.error("[RI] IOException 발생. IP 차단 시점의 행정구역 이름과 좌표 저장\n", e);
 
                 // 배치 삽입
-                jdbcBatchExecutor.batchInsert();
+                batchExecutor.batchInsert();
 
                 // IP 차단 시점의 좌표를 저장
-                restaurantImageBackupManager.setRiBackup(backupDto);
+                backupManager.setRiBackup(backupDto);
                 // IP 차단 시점의 스택의 모든 요소들을 저장
-                restaurantImageBackupManager.setAllRiBackups(stack);
+                backupManager.setAllRiBackups(stack);
 
                 log.info("백업 완료");
                 return;

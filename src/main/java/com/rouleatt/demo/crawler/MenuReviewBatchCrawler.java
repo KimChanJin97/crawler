@@ -7,7 +7,8 @@ import static org.apache.commons.text.StringEscapeUtils.unescapeJava;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rouleatt.demo.batch.JdbcBatchExecutor;
+import com.rouleatt.demo.batch.MenuReviewBatchExecutor;
+import com.rouleatt.demo.batch.RestaurantImageBatchExecutor;
 import com.rouleatt.demo.backup.MenuReviewBackupManager;
 import com.rouleatt.demo.batch.MenuIdGenerator;
 import com.rouleatt.demo.batch.ReviewIdGenerator;
@@ -34,15 +35,15 @@ import org.jsoup.nodes.Document;
 @Slf4j
 public class MenuReviewBatchCrawler {
 
-    private final MenuReviewBackupManager menuReviewBackupManager;
+    private final MenuReviewBackupManager backupManager;
     private final TableManager tableManager;
-    private final JdbcBatchExecutor jdbcBatchExecutor;
+    private final MenuReviewBatchExecutor batchExecutor;
     private final ObjectMapper objectMapper;
 
     public MenuReviewBatchCrawler() {
-        this.menuReviewBackupManager = new MenuReviewBackupManager();
+        this.backupManager = new MenuReviewBackupManager();
         this.tableManager = new TableManager();
-        this.jdbcBatchExecutor = new JdbcBatchExecutor();
+        this.batchExecutor = new MenuReviewBatchExecutor();
         this.objectMapper = new ObjectMapper();
     }
 
@@ -51,17 +52,17 @@ public class MenuReviewBatchCrawler {
         Stack<MenuReviewBackupDto> stack = new Stack<>();
 
         // 메뉴 데이터가 백업되어있다면 백업 데이터(차단 시점의 좌표들)부터 크롤링
-        if (menuReviewBackupManager.hasFirstMrBackup()) {
+        if (backupManager.hasFirstMrBackup()) {
             log.info("IP 차단 시점의 좌표부터 크롤링 시작");
-            List<MenuReviewBackupDto> backupDtos = menuReviewBackupManager.getAllMrBackupsOrderByIdDesc();
-            menuReviewBackupManager.dropAndCreateMrBackupTable();
+            List<MenuReviewBackupDto> backupDtos = backupManager.getAllMrBackupsOrderByIdDesc();
+            backupManager.dropAndCreateMrBackupTable();
             backupDtos.forEach(backupDto -> stack.push(backupDto));
         }
         // 메뉴 데이터가 백업되어있지 않다면 데이터베이스 드랍하고 처음부터 크롤링
         else {
             log.info("처음부터 크롤링 시작");
             tableManager.dropAndCreateMenuAndReviewTable();
-            List<MenuReviewBackupDto> backupDtos = menuReviewBackupManager.getAllRestaurantPkId();
+            List<MenuReviewBackupDto> backupDtos = backupManager.getAllRestaurantPkId();
             backupDtos.forEach(backupDto -> stack.push(backupDto));
         }
 
@@ -98,7 +99,7 @@ public class MenuReviewBatchCrawler {
                     // 메뉴, 메뉴 이미지 배치
                     if (MR_MENU_PATTERN.matcher(key).matches()) {
                         int menuPk = MenuIdGenerator.getNextId();
-                        jdbcBatchExecutor.addMenu(
+                        batchExecutor.addMenu(
                                 menuPk,
                                 restaurantPk,
                                 checkNull(decode(value.path("name").asText())),
@@ -109,14 +110,14 @@ public class MenuReviewBatchCrawler {
                         );
 
                         for (JsonNode image : value.path("images")) {
-                            jdbcBatchExecutor.addMenuImage(menuPk, decode(image.asText()));
+                            batchExecutor.addMenuImage(menuPk, decode(image.asText()));
                         }
                     }
 
                     // 리뷰, 리뷰 이미지 배치
                     if (MR_REVIEW_PATTERN.matcher(key).matches()) {
                         int reviewPk = ReviewIdGenerator.getNextId();
-                        jdbcBatchExecutor.addReview(
+                        batchExecutor.addReview(
                                 reviewPk,
                                 restaurantPk,
                                 checkNull(decode(value.path("name").asText())),
@@ -131,7 +132,7 @@ public class MenuReviewBatchCrawler {
                         );
 
                         for (JsonNode thumbnailUrl : value.path("thumbnailUrlList")) {
-                            jdbcBatchExecutor.addReviewImage(reviewPk, checkNull(decode(thumbnailUrl.asText())));
+                            batchExecutor.addReviewImage(reviewPk, checkNull(decode(thumbnailUrl.asText())));
                         }
                     }
 
@@ -143,7 +144,7 @@ public class MenuReviewBatchCrawler {
                                 .path(MR_BIZ_HOUR_THIRD_DEPTH_KEY);
 
                         for (JsonNode businessHour : businessHours) {
-                            jdbcBatchExecutor.addBizHour(
+                            batchExecutor.addBizHour(
                                     restaurantPk,
                                     checkDay(checkNull(businessHour.path("day").asText())),
                                     checkNull(businessHour.path("businessHours").path("start").asText()),
@@ -158,10 +159,16 @@ public class MenuReviewBatchCrawler {
             } catch (IOException e) {
                 log.error("[MR] IOException 발생. 차단 시점의 rpk, rid 저장\n", e);
 
+                // 배치 삽입
+                batchExecutor.batchInsert();
+
                 // 차단 시점의 좌표를 저장
-                menuReviewBackupManager.setMrBackup(backupDto);
+                backupManager.setMrBackup(backupDto);
                 // 차단 시점의 스택의 모든 요소들을 저장
-                menuReviewBackupManager.setAllMrBackups(stack);
+                backupManager.setAllMrBackups(stack);
+
+                log.info("백업 완료");
+                return;
 
             } catch (ParseException e) {
                 log.error("[MR] ParseException 발생\n 응답 = {}\n", response, e);
