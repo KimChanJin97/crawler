@@ -28,7 +28,7 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 public class RestaurantImageBatchCrawler {
 
     private static int BATCH_COUNT = 0;
-    private static final int BATCH_SIZE = 30;
+    private static final int BATCH_SIZE = 50;
 
     private final RestaurantImageBackupManager backupManager;
     private final TableManager tableManager;

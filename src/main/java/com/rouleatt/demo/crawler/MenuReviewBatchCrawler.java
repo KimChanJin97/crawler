@@ -36,7 +36,7 @@ import org.jsoup.nodes.Document;
 public class MenuReviewBatchCrawler {
 
     private static int BATCH_COUNT = 0;
-    private static final int BATCH_SIZE = 30;
+    private static final int BATCH_SIZE = 50;
 
     private final MenuReviewBackupManager backupManager;
     private final TableManager tableManager;
@@ -223,12 +223,6 @@ public class MenuReviewBatchCrawler {
             request.addHeader(MR_SEC_FETCH_USER_KEY, MR_SEC_FETCH_USER_VALUE);
             request.addHeader(MR_UPGRADE_INSECURE_REQUESTS_KEY, MR_UPGRADE_INSECURE_REQUESTS_VALUE);
             request.addHeader(MR_USER_AGENT_KEY, MR_USER_AGENT_VALUE);
-
-            try {
-                Thread.sleep(1_000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
 
             try (CloseableHttpResponse response = httpClient.execute(request)) {
                 return EntityUtils.toString(response.getEntity());
