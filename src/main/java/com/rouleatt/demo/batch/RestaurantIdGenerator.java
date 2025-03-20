@@ -14,7 +14,7 @@ public class RestaurantIdGenerator {
     private static final String USERNAME = EnvLoader.get("USERNAME");
     private static final String PASSWORD = EnvLoader.get("PASSWORD");
 
-    private static final String SELECT_MENU_LAST_ID = "SELECT MAX(id) AS last_id FROM restaurant";
+    private static final String SELECT_RESTAURANT_LAST_ID = "SELECT MAX(id) AS last_id FROM restaurant";
 
     private static final AtomicInteger ID = new AtomicInteger(getRestaurantLastId() + 1);
 
@@ -24,7 +24,7 @@ public class RestaurantIdGenerator {
 
     private static int getRestaurantLastId() {
         try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
-             PreparedStatement pstmt = conn.prepareStatement(SELECT_MENU_LAST_ID);
+             PreparedStatement pstmt = conn.prepareStatement(SELECT_RESTAURANT_LAST_ID);
              ResultSet rs = pstmt.executeQuery()) {
             if (rs.next()) {
                 return rs.getInt("last_id");
