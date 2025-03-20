@@ -20,12 +20,18 @@ public class MenuReviewBackupManager {
     private static final String USERNAME = EnvLoader.get("USERNAME");
     private static final String PASSWORD = EnvLoader.get("PASSWORD");
 
-    private static final String SELECT_RESTAURANT_PK_ID_SQL = "SELECT id, rid FROM restaurant";
+    // 메뉴&리뷰 백업 데이터 존재 여부 판단을 위한 SQL
     private static final String SELECT_FIRST_MR_BACKUP_SQL = "SELECT 1 FROM mr_backup WHERE id = 1 LIMIT 1";
+    // 메뉴&리뷰 백업 데이터 존재하지 않을 경우 모든 음식점을 조회하기 위한 SQL (이후 스택 삽입)
+    private static final String SELECT_RESTAURANT_PK_ID_SQL = "SELECT id, rid FROM restaurant";
+    // 메뉴&리뷰 백업 데이터 존재할 경우 백업 데이터를 조회하기 위한 SQL (이후 스택 삽입)
     private static final String SELECT_ALL_MR_BACKUPS_SQL = "SELECT rpk, rid FROM mr_backup ORDER BY id DESC";
+    // 메뉴&리뷰 백업 데이터를 저장하기 위한 SQL
     private static final String INSERT_MR_BACKUP_SQL = "INSERT INTO mr_backup (rpk, rid) VALUES (?, ?)";
+    // 메뉴&리뷰 백업 데이터를 초기화하기 위한 SQL
     private static final String DROP_MR_BACKUP_TABLE_SQL = "DROP TABLE IF EXISTS mr_backup";
-    private static final String CREATE_MR_BACKUP_TABLE_SQL = "CREATE TABLE IF NOT EXISTS mr_backup ("
+    private static final String CREATE_MR_BACKUP_TABLE_SQL =
+            "CREATE TABLE IF NOT EXISTS mr_backup ("
             + "id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
             + "rid INT NOT NULL "
             + ")";
@@ -91,13 +97,10 @@ public class MenuReviewBackupManager {
     }
 
     public void dropAndCreateMrBackupTable() {
-
         try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
              Statement stmt = conn.createStatement()) {
-
             stmt.execute(DROP_MR_BACKUP_TABLE_SQL);
             stmt.execute(CREATE_MR_BACKUP_TABLE_SQL);
-
         } catch (Exception e) {
             e.printStackTrace();
         }
