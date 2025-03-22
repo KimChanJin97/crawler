@@ -2,13 +2,13 @@ package com.rouleatt.demo.crawler;
 
 import static com.rouleatt.demo.utils.CrawlerUtils.*;
 import static com.rouleatt.demo.utils.CrawlerUtils.decodeUnicode;
+import static java.lang.Integer.*;
 import static org.apache.commons.text.StringEscapeUtils.unescapeHtml4;
 import static org.apache.commons.text.StringEscapeUtils.unescapeJava;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rouleatt.demo.batch.MenuReviewBatchExecutor;
-import com.rouleatt.demo.batch.RestaurantImageBatchExecutor;
 import com.rouleatt.demo.backup.MenuReviewBackupManager;
 import com.rouleatt.demo.batch.MenuIdGenerator;
 import com.rouleatt.demo.batch.ReviewIdGenerator;
@@ -72,127 +72,126 @@ public class MenuReviewBatchCrawler {
         while (!stack.isEmpty()) {
 
             MenuReviewBackupDto backupDto = stack.pop();
-
             int restaurantPk = backupDto.restaurantPk();
             String restaurantId = backupDto.restaurantId();
 
-            String response = null;
+            int retryCount = 1;
 
-            try {
-                URI uri = setUri(restaurantId);
-                response = sendHttpRequest(uri, restaurantId);
+            while (retryCount < MAX_VALUE) {
 
-                Thread.sleep(1_000);
+                try {
+                    URI uri = setUri(restaurantId);
+                    String response = sendHttpRequest(uri, restaurantId);
 
-                Document doc = Jsoup.parse(response, "UTF-8");
-                String script = doc.select("script").get(2).html(); // 3번째 <script> 태그
-                String rootJson = script
-                        .split(MR_LOWER_BOUND)[1] // 윗부분 제거
-                        .split(MR_UPPER_BOUND)[0]; // 아랫부분 제거
+                    Thread.sleep(1_000);
 
-                JsonNode rootNode = objectMapper.readTree(rootJson);
-                Iterator<Entry<String, JsonNode>> fields = rootNode.fields();
+                    Document doc = Jsoup.parse(response, "UTF-8");
+                    String script = doc.select("script").get(2).html(); // 3번째 <script> 태그
+                    String rootJson = script
+                            .split(MR_LOWER_BOUND)[1] // 윗부분 제거
+                            .split(MR_UPPER_BOUND)[0]; // 아랫부분 제거
 
-                while (fields.hasNext()) {
+                    JsonNode rootNode = objectMapper.readTree(rootJson);
+                    Iterator<Entry<String, JsonNode>> fields = rootNode.fields();
 
-                    Entry<String, JsonNode> entry = fields.next();
-                    String key = entry.getKey();
-                    JsonNode value = entry.getValue();
+                    while (fields.hasNext()) {
 
-                    // 메뉴, 메뉴 이미지 배치
-                    if (MR_MENU_PATTERN.matcher(key).matches()) {
-                        int menuPk = MenuIdGenerator.getNextId();
-                        batchExecutor.addMenu(
-                                menuPk,
-                                restaurantPk,
-                                checkNull(decode(value.path("name").asText())),
-                                checkNull((value.path("price").asText())),
-                                value.path("recommend").asBoolean(),
-                                checkNull(decode(value.path("description").asText())),
-                                value.path("index").asInt()
-                        );
+                        Entry<String, JsonNode> entry = fields.next();
+                        String key = entry.getKey();
+                        JsonNode value = entry.getValue();
 
-                        for (JsonNode image : value.path("images")) {
-                            batchExecutor.addMenuImage(menuPk, decode(image.asText()));
-                        }
-                    }
-
-                    // 리뷰, 리뷰 이미지 배치
-                    if (MR_REVIEW_PATTERN.matcher(key).matches()) {
-                        int reviewPk = ReviewIdGenerator.getNextId();
-                        batchExecutor.addReview(
-                                reviewPk,
-                                restaurantPk,
-                                checkNull(decode(value.path("name").asText())),
-                                checkNull(value.path("typeName").asText()),
-                                checkNull(decode(value.path("url").asText())),
-                                checkNull(decode(value.path("title").asText())),
-                                checkNull(value.path("rank").asText()),
-                                checkNull(decode(value.path("contents").asText())),
-                                checkNull(decode(value.path("profileImageUrl").asText())),
-                                checkNull(decode(value.path("authorName").asText())),
-                                checkNull(value.path("date").asText())
-                        );
-
-                        for (JsonNode thumbnailUrl : value.path("thumbnailUrlList")) {
-                            batchExecutor.addReviewImage(reviewPk, checkNull(decode(thumbnailUrl.asText())));
-                        }
-                    }
-
-                    // 영업시간, 브레이크타임, 라스트오더 배치
-                    if (MR_ROOT_QUERY_PATTERN.matcher(key).matches()) {
-                        JsonNode businessHours = value
-                                .path(String.format(MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT, restaurantId))
-                                .path(MR_BIZ_HOUR_SECOND_DEPTH_KEY).path(0)
-                                .path(MR_BIZ_HOUR_THIRD_DEPTH_KEY);
-
-                        for (JsonNode businessHour : businessHours) {
-                            batchExecutor.addBizHour(
+                        // 메뉴, 메뉴 이미지 배치
+                        if (MR_MENU_PATTERN.matcher(key).matches()) {
+                            int menuPk = MenuIdGenerator.getNextId();
+                            batchExecutor.addMenu(
+                                    menuPk,
                                     restaurantPk,
-                                    checkDay(checkNull(businessHour.path("day").asText())),
-                                    checkNull(businessHour.path("businessHours").path("start").asText()),
-                                    checkNull(businessHour.path("businessHours").path("end").asText()),
-                                    checkNull(businessHour.path("breakHours").path(0).path("start").asText()),
-                                    checkNull(businessHour.path("breakHours").path(0).path("end").asText()),
-                                    checkNull(businessHour.path("lastOrderTimes").path(0).path("time").asText())
+                                    checkNull(decode(value.path("name").asText())),
+                                    checkNull((value.path("price").asText())),
+                                    value.path("recommend").asBoolean(),
+                                    checkNull(decode(value.path("description").asText())),
+                                    value.path("index").asInt()
                             );
+
+                            for (JsonNode image : value.path("images")) {
+                                batchExecutor.addMenuImage(menuPk, decode(image.asText()));
+                            }
+                        }
+
+                        // 리뷰, 리뷰 이미지 배치
+                        if (MR_REVIEW_PATTERN.matcher(key).matches()) {
+                            int reviewPk = ReviewIdGenerator.getNextId();
+                            batchExecutor.addReview(
+                                    reviewPk,
+                                    restaurantPk,
+                                    checkNull(decode(value.path("name").asText())),
+                                    checkNull(value.path("typeName").asText()),
+                                    checkNull(decode(value.path("url").asText())),
+                                    checkNull(decode(value.path("title").asText())),
+                                    checkNull(value.path("rank").asText()),
+                                    checkNull(decode(value.path("contents").asText())),
+                                    checkNull(decode(value.path("profileImageUrl").asText())),
+                                    checkNull(decode(value.path("authorName").asText())),
+                                    checkNull(value.path("date").asText())
+                            );
+
+                            for (JsonNode thumbnailUrl : value.path("thumbnailUrlList")) {
+                                batchExecutor.addReviewImage(reviewPk, checkNull(decode(thumbnailUrl.asText())));
+                            }
+                        }
+
+                        // 영업시간, 브레이크타임, 라스트오더 배치
+                        if (MR_ROOT_QUERY_PATTERN.matcher(key).matches()) {
+                            JsonNode businessHours = value
+                                    .path(String.format(MR_BIZ_HOUR_FIRST_DEPTH_KEY_FORMAT, restaurantId))
+                                    .path(MR_BIZ_HOUR_SECOND_DEPTH_KEY).path(0)
+                                    .path(MR_BIZ_HOUR_THIRD_DEPTH_KEY);
+
+                            for (JsonNode businessHour : businessHours) {
+                                batchExecutor.addBizHour(
+                                        restaurantPk,
+                                        checkDay(checkNull(businessHour.path("day").asText())),
+                                        checkNull(businessHour.path("businessHours").path("start").asText()),
+                                        checkNull(businessHour.path("businessHours").path("end").asText()),
+                                        checkNull(businessHour.path("breakHours").path(0).path("start").asText()),
+                                        checkNull(businessHour.path("breakHours").path(0).path("end").asText()),
+                                        checkNull(businessHour.path("lastOrderTimes").path(0).path("time").asText())
+                                );
+                            }
+                        }
+
+                        // 타겟팅한 행정구역이 아닐 경우 배치 삽입 호출할 필요없음
+                        if (batchExecutor.shouldBatchInsert()) {
+
+                            // 배치 사이즈에 도달하지 않았다면 배치 카운트 증가
+                            if (BATCH_COUNT < BATCH_SIZE) {
+                                BATCH_COUNT++;
+                            }
+                            // 배치 사이즈에 도달했다면 배치 삽입. 배치 카운트 초기화
+                            else {
+                                batchExecutor.batchInsert();
+                                BATCH_COUNT = 0;
+                            }
                         }
                     }
 
-                    if (batchExecutor.shouldBatchInsert()) {
+                    // 배치 삽입 또는 영역 쪼개기 중 하나라도 성공했다면 재시도 반복문 종료
+                    break;
 
-                        // 배치 사이즈에 도달하지 않았다면 배치 카운트 증가
-                        if (BATCH_COUNT < BATCH_SIZE) {
-                            BATCH_COUNT++;
-                        }
-                        // 배치 사이즈에 도달했다면 배치 삽입. 배치 카운트 초기화
-                        else {
-                            batchExecutor.batchInsert();
-                            BATCH_COUNT = 0;
-                        }
+                } catch (Exception ex) {
+                    log.error("[MR] IOException 발생. 차단 시점의 rpk, rid 저장\n", ex);
+                    batchExecutor.batchInsert(); // 배치에 쌓여있는 데이터 배치 삽입
+                    backupManager.setMrBackup(backupDto); // IP 차단 시점의 좌표를 저장
+                    backupManager.setAllMrBackups(stack); // IP 차단 시점의 스택의 모든 요소들을 저장
+                    log.info("[MR] 백업 완료\n");
+
+                    try {
+                        log.info("[MR] {} 분 슬립 후 크롤링 재시도\n", 60_000 * retryCount++);
+                        Thread.sleep(60_000 * retryCount);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
                     }
-
                 }
-            } catch (IOException e) {
-                log.error("[MR] IOException 발생. 차단 시점의 rpk, rid 저장\n", e);
-
-                // 배치 삽입
-                batchExecutor.batchInsert();
-
-                // 차단 시점의 좌표를 저장
-                backupManager.setMrBackup(backupDto);
-                // 차단 시점의 스택의 모든 요소들을 저장
-                backupManager.setAllMrBackups(stack);
-
-                log.info("백업 완료");
-                return;
-
-            } catch (ParseException e) {
-                log.error("[MR] ParseException 발생\n 응답 = {}\n", response, e);
-                return;
-            } catch (InterruptedException e) {
-                log.error("[MR] InterruptedException 발생. 크롤링 종료");
-                return;
             }
         }
     }
