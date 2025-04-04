@@ -91,12 +91,12 @@ public class MenuReviewBatchExecutor {
             int restaurantFk,
             String day,
             String bizStart,
-            String bizEnd,
-            String lastOrder,
             String breakStart,
-            String breakEnd
+            String breakEnd,
+            String lastOrder,
+            String bizEnd
     ) {
-        BIZ_HOUR_BATCH.add(BizHourDto.of(restaurantFk, day, bizStart, bizEnd, lastOrder, breakStart, breakEnd));
+        BIZ_HOUR_BATCH.add(BizHourDto.of(restaurantFk, day, bizStart, breakStart, breakEnd, lastOrder, bizEnd));
     }
 
     public void batchInsert() {

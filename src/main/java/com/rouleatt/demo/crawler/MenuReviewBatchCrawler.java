@@ -152,10 +152,10 @@ public class MenuReviewBatchCrawler {
                                         restaurantPk,
                                         checkDay(checkNull(businessHour.path("day").asText())),
                                         checkNull(businessHour.path("businessHours").path("start").asText()),
-                                        checkNull(businessHour.path("businessHours").path("end").asText()),
                                         checkNull(businessHour.path("breakHours").path(0).path("start").asText()),
                                         checkNull(businessHour.path("breakHours").path(0).path("end").asText()),
-                                        checkNull(businessHour.path("lastOrderTimes").path(0).path("time").asText())
+                                        checkNull(businessHour.path("lastOrderTimes").path(0).path("time").asText()),
+                                        checkNull(businessHour.path("businessHours").path("end").asText())
                                 );
                             }
                         }
@@ -193,6 +193,11 @@ public class MenuReviewBatchCrawler {
                     }
                 }
             }
+        }
+
+        if (batchExecutor.shouldBatchInsert()) {
+            batchExecutor.batchInsert();
+            log.info("[MR] 배치 카운트에 도달하지 못해 배치에 남아있는 데이터 배치 삽입");
         }
     }
 

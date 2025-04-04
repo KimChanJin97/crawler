@@ -1,12 +1,7 @@
 package com.rouleatt.demo.batch;
 
-import com.rouleatt.demo.dto.BizHourDto;
-import com.rouleatt.demo.dto.MenuDto;
-import com.rouleatt.demo.dto.MenuImageDto;
 import com.rouleatt.demo.dto.RestaurantDto;
 import com.rouleatt.demo.dto.RestaurantImageDto;
-import com.rouleatt.demo.dto.ReviewDto;
-import com.rouleatt.demo.dto.ReviewImageDto;
 import com.rouleatt.demo.utils.EnvLoader;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -27,19 +22,9 @@ public class RestaurantImageBatchExecutor {
 
     private static final List<RestaurantDto> RESTAURANT_BATCH = new ArrayList<>();
     private static final List<RestaurantImageDto> RESTAURANT_IMAGE_BATCH = new ArrayList<>();
-    private static final List<MenuDto> MENU_BATCH = new ArrayList<>();
-    private static final List<MenuImageDto> MENU_IMAGE_BATCH = new ArrayList<>();
-    private static final List<ReviewDto> REVIEW_BATCH = new ArrayList<>();
-    private static final List<ReviewImageDto> REVIEW_IMAGE_BATCH = new ArrayList<>();
-    private static final List<BizHourDto> BIZ_HOUR_BATCH = new ArrayList<>();
 
     private static final String INSERT_RESTAURANT_MANUAL_INCREMENT_SQL = "INSERT INTO restaurant (id, rid, name, coordinate, category, address, road_address) VALUES (?, ?, ?, ST_GeomFromText(?, 4326), ?, ?, ?)";
     private static final String INSERT_RESTAURANT_IMAGE_AUTO_INCREMENT_SQL = "INSERT INTO restaurant_image (restaurant_id, url) VALUES (?, ?)";
-    private static final String INSERT_MENU_MANUAL_INCREMENT_SQL = "INSERT INTO menu (id, restaurant_id, name, price, is_recommended, description, menu_idx) VALUES (?, ?, ?, ?, ?, ?, ?)";
-    private static final String INSERT_MENU_IMAGE_AUTO_INCREMENT_SQL = "INSERT INTO menu_image (menu_id, image_url) VALUES (?, ?)";
-    private static final String INSERT_REVIEW_MANUAL_INCREMENT_SQL = "INSERT INTO review (id, restaurant_id, name, type, url, title, review_idx, content, profile_url, author_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    private static final String INSERT_REVIEW_IMAGE_AUTO_INCREMENT_SQL = "INSERT INTO review_image (review_id, thumbnail_url) VALUES (?, ?)";
-    private static final String INSERT_BIZ_HOUR_AUTO_INCREMENT_SQL = "INSERT INTO biz_hour (restaurant_id, day, biz_start, biz_end, last_order, break_start, break_end) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
     public void addRestaurant(
             int restaurantPk,
@@ -68,12 +53,7 @@ public class RestaurantImageBatchExecutor {
             conn.setAutoCommit(false);
 
             try (PreparedStatement rtpstmt = conn.prepareStatement(INSERT_RESTAURANT_MANUAL_INCREMENT_SQL);
-                 PreparedStatement rtipstmt = conn.prepareStatement(INSERT_RESTAURANT_IMAGE_AUTO_INCREMENT_SQL);
-                 PreparedStatement mpstmt = conn.prepareStatement(INSERT_MENU_MANUAL_INCREMENT_SQL);
-                 PreparedStatement mipstmt = conn.prepareStatement(INSERT_MENU_IMAGE_AUTO_INCREMENT_SQL);
-                 PreparedStatement rvpstmt = conn.prepareStatement(INSERT_REVIEW_MANUAL_INCREMENT_SQL);
-                 PreparedStatement rvipstmt = conn.prepareStatement(INSERT_REVIEW_IMAGE_AUTO_INCREMENT_SQL);
-                 PreparedStatement bhpstmt = conn.prepareStatement(INSERT_BIZ_HOUR_AUTO_INCREMENT_SQL)) {
+                 PreparedStatement rtipstmt = conn.prepareStatement(INSERT_RESTAURANT_IMAGE_AUTO_INCREMENT_SQL)) {
 
                 for (RestaurantDto restaurantDto : RESTAURANT_BATCH) {
                     rtpstmt.setInt(1, restaurantDto.restaurantPk());

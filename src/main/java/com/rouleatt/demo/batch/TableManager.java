@@ -104,10 +104,10 @@ public class TableManager {
             + "restaurant_id INT NOT NULL, "
             + "day VARCHAR(10), "
             + "biz_start VARCHAR(10), "
-            + "biz_end VARCHAR(10), "
-            + "last_order VARCHAR(10), "
             + "break_start VARCHAR(10), "
             + "break_end VARCHAR(10), "
+            + "last_order VARCHAR(10), "
+            + "biz_end VARCHAR(10), "
             + "FOREIGN KEY (restaurant_id) REFERENCES restaurant(id) ON DELETE CASCADE"
             + ")";
 
@@ -138,23 +138,6 @@ public class TableManager {
             stmt.execute(CREATE_REVIEW_TABLE_SQL);
             stmt.execute(CREATE_REVIEW_IMAGE_TABLE_SQL);
             stmt.execute(CREATE_BIZ_HOUR_TABLE_SQL);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void dropAndCreateRestaurantAndImageTable() {
-        try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
-             Statement stmt = conn.createStatement()) {
-
-            stmt.execute(DROP_RESTAURANT_IMAGE_TABLE_SQL);
-            stmt.execute(DROP_RESTAURANT_TABLE_SQL);
-            stmt.execute(DROP_RI_BACKUP_TABLE_SQL);
-
-            stmt.execute(CREATE_RI_BACKUP_TABLE_SQL);
-            stmt.execute(CREATE_RESTAURANT_TABLE_SQL);
-            stmt.execute(CREATE_RESTAURANT_IMAGE_TABLE_SQL);
 
         } catch (Exception e) {
             e.printStackTrace();

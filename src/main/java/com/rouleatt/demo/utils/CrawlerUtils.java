@@ -5,8 +5,6 @@ import java.util.regex.Pattern;
 
 public class CrawlerUtils {
 
-    // 구분자
-    public static final String DELIMITER = "DELIMITER";
     // 음식점, 이미지 요청 헤더
     public static final String RI_URI = EnvLoader.get("RI_URI");
     public static final String RI_SEARCH_COORD_KEY = EnvLoader.get("RI_SEARCH_COORD_KEY");

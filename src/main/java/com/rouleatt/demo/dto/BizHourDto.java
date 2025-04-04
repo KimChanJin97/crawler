@@ -4,27 +4,28 @@ public record BizHourDto(
         int restaurantFk,
         String day,
         String bizStart,
-        String bizEnd,
-        String lastOrder,
         String breakStart,
-        String breakEnd
+        String breakEnd,
+        String lastOrder,
+        String bizEnd
 ) {
     public static BizHourDto of(
             int restaurantFk,
             String day,
             String bizStart,
-            String bizEnd,
-            String lastOrder,
             String breakStart,
-            String breakEnd
+            String breakEnd,
+            String lastOrder,
+            String bizEnd
     ) {
         return new BizHourDto(
                 restaurantFk,
                 day,
                 bizStart,
-                bizEnd,
-                lastOrder,
                 breakStart,
-                breakEnd);
+                breakEnd,
+                lastOrder,
+                bizEnd
+        );
     }
 }

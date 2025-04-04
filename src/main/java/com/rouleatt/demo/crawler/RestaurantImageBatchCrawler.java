@@ -15,6 +15,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.Stack;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
@@ -107,7 +109,7 @@ public class RestaurantImageBatchCrawler {
                                         restaurantNode.path("name").asText(),
                                         Double.parseDouble(restaurantNode.path("x").asText()),
                                         Double.parseDouble(restaurantNode.path("y").asText()),
-                                        checkNull(restaurantNode.path("categoryName").asText()),
+                                        checkNull(restaurantNode.path("categoryName").asText()).split(",")[0],
                                         checkNull(restaurantNode.path("address").asText()),
                                         checkNull(restaurantNode.path("roadAddress").asText()));
 
@@ -163,6 +165,11 @@ public class RestaurantImageBatchCrawler {
                     }
                 }
             }
+        }
+
+        if (batchExecutor.shouldBatchInsert()) {
+            batchExecutor.batchInsert();
+            log.info("[RI] 배치 카운트에 도달하지 못해 배치에 남아있는 데이터 배치 삽입");
         }
     }
 
