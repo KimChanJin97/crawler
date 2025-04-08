@@ -167,7 +167,7 @@ public class MenuBatchExecutor {
 
                 // 배치 실행이 끝나면 한번에 커밋
                 conn.commit();
-                log.info("RI 배치 삽입 횟수 = {}", ++count);
+                log.info("[M] 배치 삽입 횟수 = {}", ++count);
 
                 // 배치 후 리스트 비우기
                 MENU_BATCH.clear();

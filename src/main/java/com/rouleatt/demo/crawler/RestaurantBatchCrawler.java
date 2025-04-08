@@ -29,6 +29,7 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 @Slf4j
 public class RestaurantBatchCrawler {
 
+    private static int MAX_RETRY = 7;
     private static int BATCH_COUNT = 0;
     private static final int BATCH_SIZE = 50;
 
@@ -49,15 +50,15 @@ public class RestaurantBatchCrawler {
         Stack<RestaurantBackupDto> stack = new Stack<>();
 
         // 좌표 데이터가 백업되어있다면 백업 데이터(차단 시점의 좌표들)부터 크롤링
-        if (backupManager.hasFirstRiBackup()) {
-            log.info("IP 차단 시점의 좌표부터 크롤링 시작");
+        if (backupManager.hasFirstRestaurantBackup()) {
+            log.info("[R] IP 차단 시점의 좌표부터 크롤링 시작");
             List<RestaurantBackupDto> backupDtos = backupManager.getAllRestaurantBackupsOrderByIdDesc();
             backupManager.dropAndCreateRestaurantBackupTable();
             backupDtos.forEach(backupDto -> stack.push(backupDto));
         }
         // 좌표 데이터가 백업되어있지 않다면 데이터베이스 드랍하고 처음부터 크롤링
         else {
-            log.info("처음부터 크롤링 시작");
+            log.info("[R] 처음부터 크롤링 시작");
             tableManager.dropAndCreateAllTables();
             Arrays.stream(Region.values()).forEach(region -> stack.push(RestaurantBackupDto.from(region)));
         }
@@ -72,93 +73,98 @@ public class RestaurantBatchCrawler {
             double maxX = backupDto.maxX();
             double maxY = backupDto.maxY();
 
-            try {
-                URI uri = setUri(minX, minY, maxX, maxY);
-                String response = sendHttpRequest(uri);
+            int retry = 1;
+            while (retry <= MAX_RETRY) {
+                try {
 
-                Thread.sleep(1000);
+                    URI uri = setUri(minX, minY, maxX, maxY);
+                    String response = sendHttpRequest(uri);
 
-                JsonNode rootNode = mapper.readTree(response); // 에러
-                JsonNode resultNode = rootNode.path("result");
-                JsonNode metaNode = resultNode.path("meta");
-                JsonNode countNode = metaNode.path("count");
-                JsonNode restaurantsNode = resultNode.path("list");
+                    Thread.sleep(1000);
 
-                // 크롤링한 음식점이 0개 초과 100개 미만이라면
-                if (0 < countNode.asInt() && countNode.asInt() < 100) {
+                    JsonNode rootNode = mapper.readTree(response); // 에러
+                    JsonNode resultNode = rootNode.path("result");
+                    JsonNode metaNode = resultNode.path("meta");
+                    JsonNode countNode = metaNode.path("count");
+                    JsonNode restaurantsNode = resultNode.path("list");
 
-                    for (JsonNode restaurantNode : restaurantsNode) {
+                    // 크롤링한 음식점이 0개 초과 100개 미만이라면
+                    if (0 < countNode.asInt() && countNode.asInt() < 100) {
 
-                        // 주소가 타겟팅한 행정구역이라면
-                        String address = checkNull(restaurantNode.path("address").asText());
+                        for (JsonNode restaurantNode : restaurantsNode) {
 
-                        if (isTarget(address, fullName, shortName)) {
+                            // 주소가 타겟팅한 행정구역이라면
+                            String address = checkNull(restaurantNode.path("address").asText());
 
-                            int restaurantPk = RestaurantIdGenerator.getNextId();
-                            String restaurantId = restaurantNode.path("id").asText();
+                            if (isTarget(address, fullName, shortName)) {
 
-                            // 음식점 크롤링 및 배치
-                            batchExecutor.addRestaurant(
-                                    restaurantPk,
-                                    restaurantId,
-                                    restaurantNode.path("name").asText(),
-                                    Double.parseDouble(restaurantNode.path("x").asText()),
-                                    Double.parseDouble(restaurantNode.path("y").asText()),
-                                    checkNull(restaurantNode.path("categoryName").asText()).split(",")[0],
-                                    checkNull(restaurantNode.path("address").asText()),
-                                    checkNull(restaurantNode.path("roadAddress").asText()));
+                                int restaurantPk = RestaurantIdGenerator.getNextId();
+                                String restaurantId = restaurantNode.path("id").asText();
 
-                            // 음식점 이미지 크롤링 및 배치
-                            for (JsonNode imageNode : restaurantNode.path("images")) {
-                                batchExecutor.addRestaurantImage(restaurantPk, imageNode.asText());
+                                // 음식점 크롤링 및 배치
+                                batchExecutor.addRestaurant(
+                                        restaurantPk,
+                                        restaurantId,
+                                        restaurantNode.path("name").asText(),
+                                        Double.parseDouble(restaurantNode.path("x").asText()),
+                                        Double.parseDouble(restaurantNode.path("y").asText()),
+                                        checkNull(restaurantNode.path("categoryName").asText()).split(",")[0],
+                                        checkNull(restaurantNode.path("address").asText()),
+                                        checkNull(restaurantNode.path("roadAddress").asText()));
+
+                                // 음식점 이미지 크롤링 및 배치
+                                for (JsonNode imageNode : restaurantNode.path("images")) {
+                                    batchExecutor.addRestaurantImage(restaurantPk, imageNode.asText());
+                                }
                             }
+                        }
+
+                        // 배치 사이즈에 도달하지 않았다면 배치 카운트 증가
+                        if (BATCH_COUNT < BATCH_SIZE) {
+                            BATCH_COUNT++;
+                        }
+                        // 배치 사이즈에 도달했다면 배치 삽입. 배치 카운트 초기화
+                        if (BATCH_COUNT >= BATCH_SIZE) {
+                            batchExecutor.batchInsert();
+                            BATCH_COUNT = 0;
                         }
                     }
 
-                    // 배치 사이즈에 도달하지 않았다면 배치 카운트 증가
-                    if (BATCH_COUNT < BATCH_SIZE) {
-                        BATCH_COUNT++;
+                    // 크롤링한 음식점이 100개 이상이라면 영역을 쪼개기 위해 스택 푸시
+                    if (countNode.asInt() >= 100) {
+
+                        double midX = (minX + maxX) / 2;
+                        double midY = (minY + maxY) / 2;
+
+                        stack.push(RestaurantBackupDto.of(fullName, shortName, midX, minY, maxX, midY));
+                        stack.push(RestaurantBackupDto.of(fullName, shortName, minX, minY, midX, midY));
+                        stack.push(RestaurantBackupDto.of(fullName, shortName, midX, midY, maxX, maxY));
+                        stack.push(RestaurantBackupDto.of(fullName, shortName, minX, midY, midX, maxY));
                     }
-                    // 배치 사이즈에 도달했다면 배치 삽입. 배치 카운트 초기화
-                    if (BATCH_COUNT >= BATCH_SIZE) {
-                        batchExecutor.batchInsert();
-                        BATCH_COUNT = 0;
+
+                    // 배치삽입 또는 영역쪼개기 둘 중 하나라도 성공했다면 while 탈출
+                    break;
+
+                } catch (Exception ex) {
+                    log.error("[R] 예외 발생. IP 차단 시점의 행정구역 이름과 좌표 저장\n", ex);
+                    batchExecutor.batchInsert(); // 배치에 쌓여있는 데이터 배치 삽입
+                    backupManager.setRestaurantBackup(backupDto); // IP 차단 시점의 좌표를 저장
+                    backupManager.setAllRestaurantBackups(stack); // IP 차단 시점의 스택의 모든 요소들을 저장
+                    log.info("[R] 백업 완료\n");
+
+                    try {
+                        log.info("[R] {} 분 슬립 후 크롤링 재시도\n", 10 * retry++);
+                        Thread.sleep(600_000 * retry);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
                     }
                 }
-
-                // 크롤링한 음식점이 100개 이상이라면 영역을 쪼개기 위해 스택 푸시
-                if (countNode.asInt() >= 100) {
-
-                    double midX = (minX + maxX) / 2;
-                    double midY = (minY + maxY) / 2;
-
-                    stack.push(RestaurantBackupDto.of(fullName, shortName, midX, minY, maxX, midY));
-                    stack.push(RestaurantBackupDto.of(fullName, shortName, minX, minY, midX, midY));
-                    stack.push(RestaurantBackupDto.of(fullName, shortName, midX, midY, maxX, maxY));
-                    stack.push(RestaurantBackupDto.of(fullName, shortName, minX, midY, midX, maxY));
-                }
-
-            } catch (Exception ex) {
-                log.error("[RI] 예외 발생. IP 차단 시점의 행정구역 이름과 좌표 저장\n", ex);
-
-                log.info("현재 {}", backupDto.shortName());
-
-                Stack<RestaurantBackupDto> copy = new Stack<>();
-                copy.addAll(stack);
-                while (!copy.isEmpty()) {
-                    log.info("스택 {}", copy.pop().shortName());
-                }
-
-                batchExecutor.batchInsert(); // 배치에 쌓여있는 데이터 배치 삽입
-                backupManager.setRestaurantBackup(backupDto); // IP 차단 시점의 좌표를 저장
-                backupManager.setAllRestaurantBackups(stack); // IP 차단 시점의 스택의 모든 요소들을 저장
-                log.info("[RI] 백업 완료\n");
             }
         }
 
         // 마지막 배치 삽입
         batchExecutor.batchInsert();
-        log.info("[RI] 마지막 배치 삽입");
+        log.info("[R] 마지막 배치 삽입");
     }
 
     private URI setUri(double minX, double minY, double maxX, double maxY) {
