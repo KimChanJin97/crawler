@@ -1,6 +1,7 @@
 package com.rouleatt.demo;
 
 import com.rouleatt.demo.batch.TableManager;
+import com.rouleatt.demo.crawler.MenuBatchCrawler;
 import com.rouleatt.demo.crawler.RestaurantBatchCrawler;
 
 public class CrawlerApplication {
@@ -12,9 +13,9 @@ public class CrawlerApplication {
 
         RestaurantBatchCrawler restaurantBatchCrawler = new RestaurantBatchCrawler();
         restaurantBatchCrawler.crawl();
-//
-//        MenuReviewBatchCrawler menuReviewBatchCrawler = new MenuReviewBatchCrawler();
-//        menuReviewBatchCrawler.crawl();
+
+        MenuBatchCrawler menuBatchCrawler = new MenuBatchCrawler();
+        menuBatchCrawler.crawl();
 
     }
 }
