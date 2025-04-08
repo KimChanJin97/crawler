@@ -1,6 +1,6 @@
 package com.rouleatt.demo.backup;
 
-import com.rouleatt.demo.dto.RestaurantImageBackupDto;
+import com.rouleatt.demo.dto.RestaurantBackupDto;
 import com.rouleatt.demo.utils.EnvLoader;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -9,25 +9,19 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import java.util.Stack;
 
-public class RestaurantImageBackupManager {
+public class RestaurantBackupManager {
 
     private static final String JDBC_URL = EnvLoader.get("JDBC_URL");
     private static final String USERNAME = EnvLoader.get("USERNAME");
     private static final String PASSWORD = EnvLoader.get("PASSWORD");
 
     // 영역 백업 데이터 존재 여부 판단을 위한 SQL
-    private static final String SELECT_FIRST_REGION_BACKUP_SQL = "SELECT 1 FROM ri_backup WHERE id = 1 LIMIT 1";
+    private static final String SELECT_FIRST_RI_BACKUP_SQL = "SELECT 1 FROM ri_backup WHERE id = 1 LIMIT 1";
     // 영역 백업 데이터 존재할 경우 모든 영역 백업 데이터를 조회하기 위한 SQL (이후 스택 삽입)
-    private static final String SELECT_ALL_REGION_BACKUPS_SQL = "SELECT full_name, short_name, min_x, min_y, max_x, max_y FROM ri_backup ORDER BY id DESC";
+    private static final String SELECT_ALL_RESTAURANT_BACKUPS_SQL = "SELECT full_name, short_name, min_x, min_y, max_x, max_y FROM ri_backup ORDER BY id DESC";
     // 영역 백업 데이터를 저장하기 위한 SQL
     private static final String INSERT_REGION_BACKUP_SQL = "INSERT INTO ri_backup (full_name, short_name, min_x, min_y, max_x, max_y) VALUES (?, ?, ?, ?, ?, ?)";
     // 영역 백업 데이터를 초기화하기 위한 SQL
@@ -44,7 +38,7 @@ public class RestaurantImageBackupManager {
 
     public boolean hasFirstRiBackup() {
         try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
-             PreparedStatement pstmt = conn.prepareStatement(SELECT_FIRST_REGION_BACKUP_SQL);
+             PreparedStatement pstmt = conn.prepareStatement(SELECT_FIRST_RI_BACKUP_SQL);
              ResultSet rs = pstmt.executeQuery()) {
             return rs.next();
         } catch (SQLException e) {
@@ -53,13 +47,13 @@ public class RestaurantImageBackupManager {
         return false;
     }
 
-    public List<RestaurantImageBackupDto> getAllRiBackupsOrderByIdDesc() {
-        List<RestaurantImageBackupDto> backupDtos = new ArrayList<>();
+    public List<RestaurantBackupDto> getAllRestaurantBackupsOrderByIdDesc() {
+        List<RestaurantBackupDto> backupDtos = new ArrayList<>();
         try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
-             PreparedStatement pstmt = conn.prepareStatement(SELECT_ALL_REGION_BACKUPS_SQL);
+             PreparedStatement pstmt = conn.prepareStatement(SELECT_ALL_RESTAURANT_BACKUPS_SQL);
              ResultSet rs = pstmt.executeQuery()) {
             while (rs.next()) {
-                backupDtos.add(RestaurantImageBackupDto.of(
+                backupDtos.add(RestaurantBackupDto.of(
                         rs.getString("full_name"),
                         rs.getString("short_name"),
                         rs.getDouble("min_x"),
@@ -73,7 +67,7 @@ public class RestaurantImageBackupManager {
         return backupDtos;
     }
 
-    public void setRiBackup(RestaurantImageBackupDto backupDto) {
+    public void setRestaurantBackup(RestaurantBackupDto backupDto) {
         try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
              PreparedStatement stmt = conn.prepareStatement(INSERT_REGION_BACKUP_SQL)) {
             stmt.setString(1, backupDto.fullName());
@@ -88,13 +82,13 @@ public class RestaurantImageBackupManager {
         }
     }
 
-    public void setAllRiBackups(Stack<RestaurantImageBackupDto> stack) {
+    public void setAllRestaurantBackups(Stack<RestaurantBackupDto> stack) {
         while (!stack.isEmpty()) {
-            setRiBackup(stack.pop());
+            setRestaurantBackup(stack.pop());
         }
     }
 
-    public void dropAndCreateRiBackupTable() {
+    public void dropAndCreateRestaurantBackupTable() {
         try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
              Statement stmt = conn.createStatement()) {
 

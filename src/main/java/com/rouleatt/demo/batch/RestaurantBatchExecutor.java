@@ -12,7 +12,7 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class RestaurantImageBatchExecutor {
+public class RestaurantBatchExecutor {
 
     private static int count = 0;
 

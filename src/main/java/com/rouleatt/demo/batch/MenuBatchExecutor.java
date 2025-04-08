@@ -3,8 +3,6 @@ package com.rouleatt.demo.batch;
 import com.rouleatt.demo.dto.BizHourDto;
 import com.rouleatt.demo.dto.MenuDto;
 import com.rouleatt.demo.dto.MenuImageDto;
-import com.rouleatt.demo.dto.RestaurantDto;
-import com.rouleatt.demo.dto.RestaurantImageDto;
 import com.rouleatt.demo.dto.ReviewDto;
 import com.rouleatt.demo.dto.ReviewImageDto;
 import com.rouleatt.demo.utils.EnvLoader;
@@ -17,7 +15,7 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class MenuReviewBatchExecutor {
+public class MenuBatchExecutor {
 
     private static int count = 0;
 

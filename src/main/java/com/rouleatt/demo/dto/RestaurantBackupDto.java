@@ -2,7 +2,7 @@ package com.rouleatt.demo.dto;
 
 import com.rouleatt.demo.utils.Region;
 
-public record RestaurantImageBackupDto(
+public record RestaurantBackupDto(
         String fullName,
         String shortName,
         double minX,
@@ -10,8 +10,8 @@ public record RestaurantImageBackupDto(
         double maxX,
         double maxY
 ) {
-    public static RestaurantImageBackupDto from(Region region) {
-        return new RestaurantImageBackupDto(
+    public static RestaurantBackupDto from(Region region) {
+        return new RestaurantBackupDto(
                 region.getFullName(),
                 region.getShortName(),
                 region.getMinX(),
@@ -20,7 +20,7 @@ public record RestaurantImageBackupDto(
                 region.getMaxY());
     }
 
-    public static RestaurantImageBackupDto of(
+    public static RestaurantBackupDto of(
             String fullName,
             String shortName,
             double minX,
@@ -28,6 +28,6 @@ public record RestaurantImageBackupDto(
             double maxX,
             double maxY
     ) {
-        return new RestaurantImageBackupDto(fullName, shortName, minX, minY, maxX, maxY);
+        return new RestaurantBackupDto(fullName, shortName, minX, minY, maxX, maxY);
     }
 }

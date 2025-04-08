@@ -1,17 +1,20 @@
 package com.rouleatt.demo;
 
-import com.rouleatt.demo.crawler.MenuReviewBatchCrawler;
-import com.rouleatt.demo.crawler.RestaurantImageBatchCrawler;
+import com.rouleatt.demo.batch.TableManager;
+import com.rouleatt.demo.crawler.RestaurantBatchCrawler;
 
 public class CrawlerApplication {
 
     public static void main(String[] args) {
 
-        RestaurantImageBatchCrawler restaurantImageBatchCrawler = new RestaurantImageBatchCrawler();
-        restaurantImageBatchCrawler.crawl();
+        TableManager tableManager = new TableManager();
+        tableManager.dropAndCreateAllTables();
 
-        MenuReviewBatchCrawler menuReviewBatchCrawler = new MenuReviewBatchCrawler();
-        menuReviewBatchCrawler.crawl();
+//        RestaurantBatchCrawler restaurantBatchCrawler = new RestaurantBatchCrawler();
+//        restaurantBatchCrawler.crawl();
+//
+//        MenuReviewBatchCrawler menuReviewBatchCrawler = new MenuReviewBatchCrawler();
+//        menuReviewBatchCrawler.crawl();
 
     }
 }
