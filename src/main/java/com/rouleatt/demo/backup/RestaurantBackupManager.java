@@ -19,14 +19,14 @@ public class RestaurantBackupManager {
     private static final String PASSWORD = EnvLoader.get("PASSWORD");
 
     // 영역 백업 데이터 존재 여부 판단을 위한 SQL
-    private static final String SELECT_FIRST_RI_BACKUP_SQL = "SELECT 1 FROM ri_backup WHERE id = 1 LIMIT 1";
+    private static final String SELECT_FIRST_RI_BACKUP_SQL = "SELECT 1 FROM restaurant_backup WHERE id = 1 LIMIT 1";
     // 영역 백업 데이터 존재할 경우 모든 영역 백업 데이터를 조회하기 위한 SQL (이후 스택 삽입)
-    private static final String SELECT_ALL_RESTAURANT_BACKUPS_SQL = "SELECT full_name, short_name, min_x, min_y, max_x, max_y FROM ri_backup ORDER BY id DESC";
+    private static final String SELECT_ALL_RESTAURANT_BACKUPS_SQL = "SELECT full_name, short_name, min_x, min_y, max_x, max_y FROM restaurant_backup ORDER BY id DESC";
     // 영역 백업 데이터를 저장하기 위한 SQL
-    private static final String INSERT_REGION_BACKUP_SQL = "INSERT INTO ri_backup (full_name, short_name, min_x, min_y, max_x, max_y) VALUES (?, ?, ?, ?, ?, ?)";
+    private static final String INSERT_RESTAURANT_BACKUP_SQL = "INSERT INTO restaurant_backup (full_name, short_name, min_x, min_y, max_x, max_y) VALUES (?, ?, ?, ?, ?, ?)";
     // 영역 백업 데이터를 초기화하기 위한 SQL
     private static final String DROP_REGION_BACKUP_TABLE_SQL = "DROP TABLE IF EXISTS ri_backup;";
-    private static final String CREATE_REGION_BACKUP_TABLE_SQL = "CREATE TABLE IF NOT EXISTS ri_backup ("
+    private static final String CREATE_RESTAURANT_BACKUP_TABLE_SQL = "CREATE TABLE IF NOT EXISTS ri_backup ("
             + "id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
             + "full_name VARCHAR(10) NOT NULL, "
             + "short_name VARCHAR(10) NOT NULL, "
@@ -69,7 +69,7 @@ public class RestaurantBackupManager {
 
     public void setRestaurantBackup(RestaurantBackupDto backupDto) {
         try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
-             PreparedStatement stmt = conn.prepareStatement(INSERT_REGION_BACKUP_SQL)) {
+             PreparedStatement stmt = conn.prepareStatement(INSERT_RESTAURANT_BACKUP_SQL)) {
             stmt.setString(1, backupDto.fullName());
             stmt.setString(2, backupDto.shortName());
             stmt.setDouble(3, backupDto.minX());
@@ -93,7 +93,7 @@ public class RestaurantBackupManager {
              Statement stmt = conn.createStatement()) {
 
             stmt.execute(DROP_REGION_BACKUP_TABLE_SQL);
-            stmt.execute(CREATE_REGION_BACKUP_TABLE_SQL);
+            stmt.execute(CREATE_RESTAURANT_BACKUP_TABLE_SQL);
 
         } catch (Exception e) {
             e.printStackTrace();

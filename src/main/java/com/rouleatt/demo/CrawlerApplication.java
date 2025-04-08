@@ -10,8 +10,8 @@ public class CrawlerApplication {
         TableManager tableManager = new TableManager();
         tableManager.dropAndCreateAllTables();
 
-//        RestaurantBatchCrawler restaurantBatchCrawler = new RestaurantBatchCrawler();
-//        restaurantBatchCrawler.crawl();
+        RestaurantBatchCrawler restaurantBatchCrawler = new RestaurantBatchCrawler();
+        restaurantBatchCrawler.crawl();
 //
 //        MenuReviewBatchCrawler menuReviewBatchCrawler = new MenuReviewBatchCrawler();
 //        menuReviewBatchCrawler.crawl();

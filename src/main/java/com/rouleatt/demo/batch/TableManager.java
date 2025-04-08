@@ -15,11 +15,11 @@ public class TableManager {
     private static final String CREATE_DATABASE_SQL = "CREATE DATABASE IF NOT EXISTS rouleatt";
     private static final String USE_DATABASE_SQL = "USE rouleatt";
 
-    private static final String DROP_RI_BACKUP_TABLE_SQL = "DROP TABLE IF EXISTS ri_backup";
+    private static final String DROP_RESTAURANT_BACKUP_TABLE_SQL = "DROP TABLE IF EXISTS restaurant_backup";
     private static final String DROP_RESTAURANT_TABLE_SQL = "DROP TABLE IF EXISTS restaurant";
     private static final String DROP_RESTAURANT_IMAGE_TABLE_SQL = "DROP TABLE IF EXISTS restaurant_image";
 
-    private static final String DROP_MR_BACKUP_TABLE_SQL = "DROP TABLE IF EXISTS mr_backup";
+    private static final String DROP_MENU_BACKUP_TABLE_SQL = "DROP TABLE IF EXISTS menu_backup";
     private static final String DROP_MENU_TABLE_SQL = "DROP TABLE IF EXISTS menu";
     private static final String DROP_MENU_IMAGE_TABLE_SQL = "DROP TABLE IF EXISTS menu_image";
     private static final String DROP_REVIEW_TABLE_SQL = "DROP TABLE IF EXISTS review";
@@ -125,11 +125,11 @@ public class TableManager {
             stmt.execute(DROP_REVIEW_TABLE_SQL);
             stmt.execute(DROP_MENU_IMAGE_TABLE_SQL);
             stmt.execute(DROP_MENU_TABLE_SQL);
-            stmt.execute(DROP_MR_BACKUP_TABLE_SQL);
+            stmt.execute(DROP_MENU_BACKUP_TABLE_SQL);
 
             stmt.execute(DROP_RESTAURANT_IMAGE_TABLE_SQL);
             stmt.execute(DROP_RESTAURANT_TABLE_SQL);
-            stmt.execute(DROP_RI_BACKUP_TABLE_SQL);
+            stmt.execute(DROP_RESTAURANT_BACKUP_TABLE_SQL);
 
             stmt.execute(CREATE_RESTAURANT_BACKUP_TABLE_SQL);
             stmt.execute(CREATE_RESTAURANT_TABLE_SQL);
@@ -155,7 +155,7 @@ public class TableManager {
             stmt.execute(DROP_REVIEW_TABLE_SQL);
             stmt.execute(DROP_MENU_IMAGE_TABLE_SQL);
             stmt.execute(DROP_MENU_TABLE_SQL);
-            stmt.execute(DROP_MR_BACKUP_TABLE_SQL);
+            stmt.execute(DROP_MENU_BACKUP_TABLE_SQL);
 
             stmt.execute(CREATE_MENU_BACKUP_TABLE_SQL);
 

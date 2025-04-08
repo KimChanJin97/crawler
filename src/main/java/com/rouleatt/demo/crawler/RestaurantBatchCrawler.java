@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import java.util.Stack;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
@@ -203,7 +204,7 @@ public class RestaurantBatchCrawler {
             request.addHeader(RI_USER_AGENT_KEY, RI_USER_AGENT_VALUE);
 
             try {
-                Thread.sleep(1_000);
+                Thread.sleep(5_000 + new Random().nextInt(5_000));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
