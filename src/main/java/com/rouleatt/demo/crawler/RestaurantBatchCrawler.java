@@ -9,13 +9,11 @@ import com.rouleatt.demo.batch.RestaurantIdGenerator;
 import com.rouleatt.demo.backup.RestaurantBackupManager;
 import com.rouleatt.demo.batch.TableManager;
 import com.rouleatt.demo.dto.RestaurantBackupDto;
-import com.rouleatt.demo.dto.RestaurantImageDto;
 import com.rouleatt.demo.utils.Region;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Random;
 import java.util.Stack;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
@@ -29,7 +27,7 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 @Slf4j
 public class RestaurantBatchCrawler {
 
-    private static int MAX_RETRY = 7;
+    private static int MAX_RETRY = 10;
     private static int BATCH_COUNT = 0;
     private static final int BATCH_SIZE = 50;
 
@@ -77,7 +75,7 @@ public class RestaurantBatchCrawler {
             while (retry < MAX_RETRY) {
 
                 try {
-                    log.info("[R] {} {} {} {} 좌표 {} 번째 크롤링", minX, minY, maxX, maxY, retry);
+                    log.info("[R] {} 스택 사이즈 | {} {} {} {} 좌표 | {} 번째 크롤링", stack.size(), minX, minY, maxX, maxY, retry);
 
                     URI uri = setUri(minX, minY, maxX, maxY);
                     String response = sendHttpRequest(uri);
@@ -144,7 +142,7 @@ public class RestaurantBatchCrawler {
                         stack.push(RestaurantBackupDto.of(fullName, shortName, minX, midY, midX, maxY));
                     }
 
-                    // 배치삽입 또는 영역쪼개기 둘 중 하나라도 성공했다면 백업 데이터 삭제
+                    // 배치삽입 또는 영역쪼개기 둘 중 하나라도 성공했다면 백업 삭제
                     if (backupManager.hasFirstRestaurantBackup()) {
                         log.info("[R] 정상. 백업 데이터 삭제");
                         backupManager.dropAndCreateRestaurantBackupTable();
@@ -154,7 +152,7 @@ public class RestaurantBatchCrawler {
 
                 } catch (Exception ex) {
 
-                    // 백업 데이터가 존재하지 않다면
+                    // 백업 데이터가 존재하지 않다면 백업
                     if (!backupManager.hasFirstRestaurantBackup()) {
                         log.error("[R] 예외 발생. IP 차단 시점의 행정구역 이름과 좌표 저장\n", ex);
                         batchExecutor.batchInsert(); // 배치에 쌓여있는 데이터 배치 삽입
@@ -169,11 +167,6 @@ public class RestaurantBatchCrawler {
                         Thread.sleep(30 * 60_000 * retry++); // 30분 단위로 슬립
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
-                    }
-
-                    // 최대 1시간 슬립했다면 크롤러 종료
-                    if (retry == MAX_RETRY) {
-                        return;
                     }
                 }
             }

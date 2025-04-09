@@ -83,8 +83,8 @@ public class RestaurantBackupManager {
     }
 
     public void setAllRestaurantBackups(Stack<RestaurantBackupDto> stack) {
-        while (!stack.isEmpty()) {
-            setRestaurantBackup(stack.pop());
+        for (RestaurantBackupDto backupDto : stack) {
+            setRestaurantBackup(backupDto);
         }
     }
 
