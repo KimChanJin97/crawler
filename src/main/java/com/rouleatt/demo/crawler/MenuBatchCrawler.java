@@ -80,6 +80,7 @@ public class MenuBatchCrawler {
             while (retry < MAX_RETRY) {
 
                 try {
+                    log.info("[M] {} 음식점 {} 번째 크롤링", restaurantId, retry);
 
                     URI uri = setUri(restaurantId);
                     String response = sendHttpRequest(uri, restaurantId);
@@ -172,19 +173,29 @@ public class MenuBatchCrawler {
                         }
                     }
 
-                    // 배치 삽입이 성공했다면 while 탈출
+                    // 배치 삽입이 성공했다면 백업 데이터 삭제
+                    if (backupManager.hasFirstMenuBackup()) {
+                        log.info("[R] 정상. 백업 데이터 삭제");
+                        backupManager.dropAndCreateMenuBackupTable();
+                    }
+                    // while 탈출
                     break;
 
                 } catch (Exception ex) {
-                    log.error("[M] 예외 발생. IP 차단 시점의 음식점 저장\n", ex);
-                    batchExecutor.batchInsert(); // 배치에 쌓여있는 데이터 배치 삽입
-                    backupManager.setMenuBackup(backupDto); // IP 차단 시점의 좌표를 저장
-                    backupManager.setAllMenuBackups(stack); // IP 차단 시점의 스택의 모든 요소들을 저장
-                    log.info("[M] 백업 완료\n");
 
+                    // 백업 데이터가 존재하지 않다면
+                    if (!backupManager.hasFirstMenuBackup()) {
+                        log.error("[M] 예외 발생. IP 차단 시점의 음식점 저장\n", ex);
+                        batchExecutor.batchInsert(); // 배치에 쌓여있는 데이터 배치 삽입
+                        backupManager.setMenuBackup(backupDto); // IP 차단 시점의 좌표를 저장
+                        backupManager.setAllMenuBackups(stack); // IP 차단 시점의 스택의 모든 요소들을 저장
+                        log.info("[M] 백업 완료");
+                    }
+
+                    // 슬립 후 크롤링 재시도
                     try {
-                        log.info("[R] {} 분 슬립 후 크롤링 재시도\n", 10 * retry++);
-                        Thread.sleep(600_000 * retry);
+                        log.info("[M] {} 분 슬립 후 크롤링 재시도", 30 * retry);
+                        Thread.sleep(30 * 600_000 * retry++); // 30분 단위로 슬립
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                     }

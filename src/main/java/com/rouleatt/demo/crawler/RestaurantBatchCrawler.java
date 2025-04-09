@@ -74,8 +74,10 @@ public class RestaurantBatchCrawler {
             double maxY = backupDto.maxY();
 
             int retry = 1;
-            while (retry <= MAX_RETRY) {
+            while (retry < MAX_RETRY) {
+
                 try {
+                    log.info("[R] {} {} {} {} 좌표 {} 번째 크롤링", minX, minY, maxX, maxY, retry);
 
                     URI uri = setUri(minX, minY, maxX, maxY);
                     String response = sendHttpRequest(uri);
@@ -142,21 +144,36 @@ public class RestaurantBatchCrawler {
                         stack.push(RestaurantBackupDto.of(fullName, shortName, minX, midY, midX, maxY));
                     }
 
-                    // 배치삽입 또는 영역쪼개기 둘 중 하나라도 성공했다면 while 탈출
+                    // 배치삽입 또는 영역쪼개기 둘 중 하나라도 성공했다면 백업 데이터 삭제
+                    if (backupManager.hasFirstRestaurantBackup()) {
+                        log.info("[R] 정상. 백업 데이터 삭제");
+                        backupManager.dropAndCreateRestaurantBackupTable();
+                    }
+                    // while 탈출
                     break;
 
                 } catch (Exception ex) {
-                    log.error("[R] 예외 발생. IP 차단 시점의 행정구역 이름과 좌표 저장\n", ex);
-                    batchExecutor.batchInsert(); // 배치에 쌓여있는 데이터 배치 삽입
-                    backupManager.setRestaurantBackup(backupDto); // IP 차단 시점의 좌표를 저장
-                    backupManager.setAllRestaurantBackups(stack); // IP 차단 시점의 스택의 모든 요소들을 저장
-                    log.info("[R] 백업 완료\n");
 
+                    // 백업 데이터가 존재하지 않다면
+                    if (!backupManager.hasFirstRestaurantBackup()) {
+                        log.error("[R] 예외 발생. IP 차단 시점의 행정구역 이름과 좌표 저장\n", ex);
+                        batchExecutor.batchInsert(); // 배치에 쌓여있는 데이터 배치 삽입
+                        backupManager.setRestaurantBackup(backupDto); // IP 차단 시점의 좌표를 저장
+                        backupManager.setAllRestaurantBackups(stack); // IP 차단 시점의 스택의 모든 요소들을 저장
+                        log.info("[R] 백업 완료");
+                    }
+
+                    // 슬립 후 크롤링 재시도
                     try {
-                        log.info("[R] {} 분 슬립 후 크롤링 재시도\n", 10 * retry++);
-                        Thread.sleep(600_000 * retry);
+                        log.info("[R] {} 분 슬립 후 크롤링 재시도", 30 * retry);
+                        Thread.sleep(30 * 60_000 * retry++); // 30분 단위로 슬립
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
+                    }
+
+                    // 최대 1시간 슬립했다면 크롤러 종료
+                    if (retry == MAX_RETRY) {
+                        return;
                     }
                 }
             }
@@ -210,7 +227,7 @@ public class RestaurantBatchCrawler {
             request.addHeader(RI_USER_AGENT_KEY, RI_USER_AGENT_VALUE);
 
             try {
-                Thread.sleep(5_000 + new Random().nextInt(5_000));
+                Thread.sleep(1_000);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
