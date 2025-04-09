@@ -26,7 +26,7 @@ public class RestaurantBackupManager {
     private static final String INSERT_RESTAURANT_BACKUP_SQL = "INSERT INTO restaurant_backup (full_name, short_name, min_x, min_y, max_x, max_y) VALUES (?, ?, ?, ?, ?, ?)";
     // 영역 백업 데이터를 초기화하기 위한 SQL
     private static final String DROP_RESTAURANT_BACKUP_TABLE_SQL = "DROP TABLE IF EXISTS restaurant_backup;";
-    private static final String CREATE_RESTAURANT_BACKUP_TABLE_SQL = "CREATE TABLE IF NOT EXISTS ri_backup ("
+    private static final String CREATE_RESTAURANT_BACKUP_TABLE_SQL = "CREATE TABLE IF NOT EXISTS restaurant_backup ("
             + "id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
             + "full_name VARCHAR(10) NOT NULL, "
             + "short_name VARCHAR(10) NOT NULL, "

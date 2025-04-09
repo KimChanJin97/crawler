@@ -29,9 +29,9 @@ public class MenuBackupManager {
     // 메뉴 백업 데이터를 저장하기 위한 SQL
     private static final String INSERT_MENU_BACKUP_SQL = "INSERT INTO menu_backup (rpk, rid) VALUES (?, ?)";
     // 메뉴 백업 데이터를 초기화하기 위한 SQL
-    private static final String DROP_MENU_BACKUP_TABLE_SQL = "DROP TABLE IF EXISTS mr_backup";
+    private static final String DROP_MENU_BACKUP_TABLE_SQL = "DROP TABLE IF EXISTS menu_backup";
     private static final String CREATE_MENU_BACKUP_TABLE_SQL =
-            "CREATE TABLE IF NOT EXISTS mr_backup ("
+            "CREATE TABLE IF NOT EXISTS menu_backup ("
             + "id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
             + "rid INT NOT NULL "
             + ")";
