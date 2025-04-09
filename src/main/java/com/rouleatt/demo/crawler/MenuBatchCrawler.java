@@ -200,7 +200,6 @@ public class MenuBatchCrawler {
                         Thread.currentThread().interrupt();
                     }
                 }
-
             }
         }
 

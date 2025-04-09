@@ -91,8 +91,8 @@ public class MenuBackupManager {
     }
 
     public void setAllMenuBackups(Stack<MenuBackupDto> stack) {
-        while (!stack.isEmpty()) {
-            setMenuBackup(stack.pop());
+        for (MenuBackupDto backupDto : stack) {
+            setMenuBackup(backupDto);
         }
     }
 
