@@ -190,7 +190,6 @@ public class MenuBatchCrawler {
                         log.error("[M] 예외 발생. IP 차단 시점의 음식점 저장\n", ex);
                         batchExecutor.batchInsert(); // 배치에 쌓여있는 데이터 배치 삽입
                         backupManager.setAllMenuBackups(STACK); // IP 차단 시점의 스택의 모든 요소들을 저장
-                        backupManager.setMenuBackup(backupDto); // IP 차단 시점의 좌표를 저장
                         log.info("[M] 백업 완료");
                     }
 

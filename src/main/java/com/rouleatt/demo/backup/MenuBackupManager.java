@@ -79,7 +79,7 @@ public class MenuBackupManager {
         return restaurantIds;
     }
 
-    public void setMenuBackup(MenuBackupDto backupDto) {
+    private  void setMenuBackup(MenuBackupDto backupDto) {
         try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
              PreparedStatement stmt = conn.prepareStatement(INSERT_MENU_BACKUP_SQL)) {
             stmt.setInt(1, backupDto.restaurantPk());

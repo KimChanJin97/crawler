@@ -67,7 +67,7 @@ public class RestaurantBackupManager {
         return backupDtos;
     }
 
-    public void setRestaurantBackup(RestaurantBackupDto backupDto) {
+    private void setRestaurantBackup(RestaurantBackupDto backupDto) {
         try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
              PreparedStatement stmt = conn.prepareStatement(INSERT_RESTAURANT_BACKUP_SQL)) {
             stmt.setString(1, backupDto.fullName());
