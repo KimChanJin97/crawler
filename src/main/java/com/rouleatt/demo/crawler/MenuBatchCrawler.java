@@ -65,7 +65,7 @@ public class MenuBatchCrawler {
         else {
             log.info("[M] 처음부터 크롤링 시작");
             tableManager.dropAndCreateMenuAndReviewTable();
-            List<MenuBackupDto> backupDtos = backupManager.getAllMenuBackupPkId();
+            List<MenuBackupDto> backupDtos = backupManager.getAllRestaurantsPkId();
             backupDtos.forEach(backupDto -> STACK.push(backupDto));
         }
 
@@ -84,9 +84,6 @@ public class MenuBatchCrawler {
                     URI uri = setUri(restaurantId);
                     String response = sendHttpRequest(uri, restaurantId);
 
-                    // 요청 성공했다면 pop
-                    STACK.pop();
-
                     Thread.sleep(1_000);
 
                     Document doc = Jsoup.parse(response, "UTF-8");
@@ -97,6 +94,9 @@ public class MenuBatchCrawler {
 
                     JsonNode rootNode = objectMapper.readTree(rootJson);
                     Iterator<Entry<String, JsonNode>> fields = rootNode.fields();
+
+                    // 요청 성공시 스택 요소 제거
+                    STACK.pop();
 
                     while (fields.hasNext()) {
 
@@ -185,10 +185,12 @@ public class MenuBatchCrawler {
 
                 } catch (Exception ex) {
 
+                    // 배치에 쌓여있는 데이터 배치 삽입
+                    batchExecutor.batchInsert();
+
                     // 백업 데이터가 존재하지 않다면
                     if (!backupManager.hasFirstMenuBackup()) {
                         log.error("[M] 예외 발생. IP 차단 시점의 음식점 저장\n", ex);
-                        batchExecutor.batchInsert(); // 배치에 쌓여있는 데이터 배치 삽입
                         backupManager.setAllMenuBackups(STACK); // IP 차단 시점의 스택의 모든 요소들을 저장
                         log.info("[M] 백업 완료");
                     }

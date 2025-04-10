@@ -23,7 +23,7 @@ public class MenuBackupManager {
     // 메뉴 백업 데이터 존재 여부 판단을 위한 SQL
     private static final String SELECT_FIRST_MENU_BACKUP_SQL = "SELECT 1 FROM menu_backup WHERE id = 1 LIMIT 1";
     // 메뉴 백업 데이터 존재하지 않을 경우 모든 음식점을 조회하기 위한 SQL (이후 스택 삽입)
-    private static final String SELECT_MENU_BACKUP_PK_ID_SQL = "SELECT id, rid FROM menu_backup";
+    private static final String SELECT_RESTAURANT_PK_ID_SQL = "SELECT id, rid FROM restaurant";
     // 메뉴 백업 데이터 존재할 경우 백업 데이터를 조회하기 위한 SQL (이후 스택 삽입)
     private static final String SELECT_ALL_MENU_BACKUPS_SQL = "SELECT rpk, rid FROM menu_backup ORDER BY id DESC";
     // 메뉴 백업 데이터를 저장하기 위한 SQL
@@ -36,10 +36,10 @@ public class MenuBackupManager {
             + "rid INT NOT NULL "
             + ")";
 
-    public List<MenuBackupDto> getAllMenuBackupPkId() {
+    public List<MenuBackupDto> getAllRestaurantsPkId() {
         List<MenuBackupDto> backupDtos = new ArrayList<>();
         try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
-             PreparedStatement pstmt = conn.prepareStatement(SELECT_MENU_BACKUP_PK_ID_SQL);
+             PreparedStatement pstmt = conn.prepareStatement(SELECT_RESTAURANT_PK_ID_SQL);
              ResultSet rs = pstmt.executeQuery()) {
             while (rs.next()) {
                 backupDtos.add(MenuBackupDto.of(
