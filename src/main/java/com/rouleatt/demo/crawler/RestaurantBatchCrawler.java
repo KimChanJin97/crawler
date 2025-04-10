@@ -12,9 +12,8 @@ import com.rouleatt.demo.dto.RestaurantBackupDto;
 import com.rouleatt.demo.utils.Region;
 import java.io.IOException;
 import java.net.URI;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Stack;
+import java.util.*;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
@@ -27,9 +26,10 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 @Slf4j
 public class RestaurantBatchCrawler {
 
-    private static int MAX_RETRY = 10;
+    private static int MAX_RETRY = 60;
     private static int BATCH_COUNT = 0;
     private static final int BATCH_SIZE = 50;
+    private static final Stack<RestaurantBackupDto> STACK = new Stack<>();
 
     private final RestaurantBackupManager backupManager;
     private final TableManager tableManager;
@@ -45,25 +45,23 @@ public class RestaurantBatchCrawler {
 
     public void crawl() {
 
-        Stack<RestaurantBackupDto> stack = new Stack<>();
-
         // 좌표 데이터가 백업되어있다면 백업 데이터(차단 시점의 좌표들)부터 크롤링
         if (backupManager.hasFirstRestaurantBackup()) {
             log.info("[R] IP 차단 시점의 좌표부터 크롤링 시작");
             List<RestaurantBackupDto> backupDtos = backupManager.getAllRestaurantBackupsOrderByIdDesc();
             backupManager.dropAndCreateRestaurantBackupTable();
-            backupDtos.forEach(backupDto -> stack.push(backupDto));
+            backupDtos.forEach(backupDto -> STACK.push(backupDto));
         }
         // 좌표 데이터가 백업되어있지 않다면 데이터베이스 드랍하고 처음부터 크롤링
         else {
             log.info("[R] 처음부터 크롤링 시작");
             tableManager.dropAndCreateAllTables();
-            Arrays.stream(Region.values()).forEach(region -> stack.push(RestaurantBackupDto.from(region)));
+            Arrays.stream(Region.values()).forEach(region -> STACK.push(RestaurantBackupDto.from(region)));
         }
 
-        while (!stack.isEmpty()) {
+        while (!STACK.isEmpty()) {
 
-            RestaurantBackupDto backupDto = stack.pop();
+            RestaurantBackupDto backupDto = STACK.peek(); // 재시도 로직 때문에 성공한 이후에 pop 해야함
             String fullName = backupDto.fullName();
             String shortName = backupDto.shortName();
             double minX = backupDto.minX();
@@ -75,18 +73,21 @@ public class RestaurantBatchCrawler {
             while (retry < MAX_RETRY) {
 
                 try {
-                    log.info("[R] {} 스택 사이즈 | {} {} {} {} 좌표 | {} 번째 크롤링", stack.size(), minX, minY, maxX, maxY, retry);
+                    log.info("[R] {} 스택 사이즈 | {} 지역 | {} {} {} {} 좌표 | {} 번째 크롤링", STACK.size(), shortName, minX, minY, maxX, maxY, retry);
 
                     URI uri = setUri(minX, minY, maxX, maxY);
                     String response = sendHttpRequest(uri);
 
-                    Thread.sleep(1000);
+                    Thread.sleep(1_000);
 
-                    JsonNode rootNode = mapper.readTree(response); // 에러
+                    JsonNode rootNode = mapper.readTree(response);
                     JsonNode resultNode = rootNode.path("result");
                     JsonNode metaNode = resultNode.path("meta");
                     JsonNode countNode = metaNode.path("count");
                     JsonNode restaurantsNode = resultNode.path("list");
+
+                    // 요청 성공했다면 pop
+                    STACK.pop();
 
                     // 크롤링한 음식점이 0개 초과 100개 미만이라면
                     if (0 < countNode.asInt() && countNode.asInt() < 100) {
@@ -136,16 +137,16 @@ public class RestaurantBatchCrawler {
                         double midX = (minX + maxX) / 2;
                         double midY = (minY + maxY) / 2;
 
-                        stack.push(RestaurantBackupDto.of(fullName, shortName, midX, minY, maxX, midY));
-                        stack.push(RestaurantBackupDto.of(fullName, shortName, minX, minY, midX, midY));
-                        stack.push(RestaurantBackupDto.of(fullName, shortName, midX, midY, maxX, maxY));
-                        stack.push(RestaurantBackupDto.of(fullName, shortName, minX, midY, midX, maxY));
+                        STACK.push(RestaurantBackupDto.of(fullName, shortName, minX, midY, midX, maxY)); // 4
+                        STACK.push(RestaurantBackupDto.of(fullName, shortName, minX, minY, midX, midY)); // 3
+                        STACK.push(RestaurantBackupDto.of(fullName, shortName, midX, midY, maxX, maxY)); // 2
+                        STACK.push(RestaurantBackupDto.of(fullName, shortName, midX, minY, maxX, midY)); // 1
                     }
 
                     // 배치삽입 또는 영역쪼개기 둘 중 하나라도 성공했다면 백업 삭제
                     if (backupManager.hasFirstRestaurantBackup()) {
-                        log.info("[R] 정상. 백업 데이터 삭제");
                         backupManager.dropAndCreateRestaurantBackupTable();
+                        log.info("[R] 정상. 백업 데이터 삭제");
                     }
                     // while 탈출
                     break;
@@ -156,15 +157,15 @@ public class RestaurantBatchCrawler {
                     if (!backupManager.hasFirstRestaurantBackup()) {
                         log.error("[R] 예외 발생. IP 차단 시점의 행정구역 이름과 좌표 저장\n", ex);
                         batchExecutor.batchInsert(); // 배치에 쌓여있는 데이터 배치 삽입
+                        backupManager.setAllRestaurantBackups(STACK); // IP 차단 시점의 스택의 모든 요소들을 저장
                         backupManager.setRestaurantBackup(backupDto); // IP 차단 시점의 좌표를 저장
-                        backupManager.setAllRestaurantBackups(stack); // IP 차단 시점의 스택의 모든 요소들을 저장
                         log.info("[R] 백업 완료");
                     }
 
                     // 슬립 후 크롤링 재시도
                     try {
-                        log.info("[R] {} 분 슬립 후 크롤링 재시도", 30 * retry);
-                        Thread.sleep(30 * 60_000 * retry++); // 30분 단위로 슬립
+                        log.info("[R] {} 분 슬립 후 크롤링 재시도", 10 * retry);
+                        Thread.sleep(10 * 60_000 * retry++); // 10분 단위로 슬립
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                     }
@@ -199,25 +200,7 @@ public class RestaurantBatchCrawler {
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpGet request = new HttpGet(uri);
-            request.addHeader(RI_AUTHORITY_KEY, RI_AUTHORITY_VALUE);
-            request.addHeader(RI_METHOD_KEY, RI_METHOD_VALUE);
-            request.addHeader(RI_PATH_KEY, uri.toString().split(".com")[1]);
-            request.addHeader(RI_SCHEME_KEY, RI_SCHEME_VALUE);
-            request.addHeader(RI_ACCEPT_KEY, RI_ACCEPT_VALUE);
-            request.addHeader(RI_ACCEPT_ENCODING_KEY, RI_ACCEPT_ENCODING_VALUE);
-            request.addHeader(RI_ACCEPT_LANGUAGE_KEY, RI_ACCEPT_LANGUAGE_VALUE);
-            request.addHeader(RI_CACHE_CONTROL_KEY, RI_CACHE_CONTROL_VALUE);
-            request.addHeader(RI_EXPIRES_KEY, RI_EXPIRES_VALUE);
-            request.addHeader(RI_PRAGMA_KEY, RI_PRAGMA_VALUE);
-            request.addHeader(RI_PRIORITY_KEY, RI_PRIORITY_VALUE);
             request.addHeader(RI_REFERER_KEY, RI_REFERER_VALUE);
-            request.addHeader(RI_SEC_CH_UA_KEY, RI_SEC_CH_UA_VALUE);
-            request.addHeader(RI_SEC_CH_UA_MOBILE_KEY, RI_SEC_CH_UA_MOBILE_VALUE);
-            request.addHeader(RI_SEC_CH_UA_PLATFORM_KEY, RI_SEC_CH_UA_PLATFORM_VALUE);
-            request.addHeader(RI_SEC_FETCH_DEST_KEY, RI_SEC_FETCH_DEST_VALUE);
-            request.addHeader(RI_SEC_FETCH_MODE_KEY, RI_SEC_FETCH_MODE_VALUE);
-            request.addHeader(RI_SEC_FETCH_SITE_KEY, RI_SEC_FETCH_SITE_VALUE);
-            request.addHeader(RI_USER_AGENT_KEY, RI_USER_AGENT_VALUE);
 
             try {
                 Thread.sleep(1_000);

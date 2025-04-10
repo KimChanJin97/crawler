@@ -35,9 +35,10 @@ import org.jsoup.nodes.Document;
 @Slf4j
 public class MenuBatchCrawler {
 
-    private static int MAX_RETRY = 7;
+    private static int MAX_RETRY = 60;
     private static int BATCH_COUNT = 0;
     private static final int BATCH_SIZE = 50;
+    private static final Stack<MenuBackupDto> STACK = new Stack<>();
 
     private final MenuBackupManager backupManager;
     private final TableManager tableManager;
@@ -53,26 +54,24 @@ public class MenuBatchCrawler {
 
     public void crawl() {
 
-        Stack<MenuBackupDto> stack = new Stack<>();
-
         // 메뉴 데이터가 백업되어있다면 백업 데이터(차단 시점의 좌표들)부터 크롤링
         if (backupManager.hasFirstMenuBackup()) {
             log.info("[M] IP 차단 시점의 좌표부터 크롤링 시작");
             List<MenuBackupDto> backupDtos = backupManager.getAllMenuBackupsOrderByIdDesc();
             backupManager.dropAndCreateMenuBackupTable();
-            backupDtos.forEach(backupDto -> stack.push(backupDto));
+            backupDtos.forEach(backupDto -> STACK.push(backupDto));
         }
         // 메뉴 데이터가 백업되어있지 않다면 데이터베이스 드랍하고 처음부터 크롤링
         else {
             log.info("[M] 처음부터 크롤링 시작");
             tableManager.dropAndCreateMenuAndReviewTable();
             List<MenuBackupDto> backupDtos = backupManager.getAllMenuBackupPkId();
-            backupDtos.forEach(backupDto -> stack.push(backupDto));
+            backupDtos.forEach(backupDto -> STACK.push(backupDto));
         }
 
-        while (!stack.isEmpty()) {
+        while (!STACK.isEmpty()) {
 
-            MenuBackupDto backupDto = stack.pop();
+            MenuBackupDto backupDto = STACK.peek();
             int restaurantPk = backupDto.restaurantPk();
             String restaurantId = backupDto.restaurantId();
 
@@ -84,6 +83,9 @@ public class MenuBatchCrawler {
 
                     URI uri = setUri(restaurantId);
                     String response = sendHttpRequest(uri, restaurantId);
+
+                    // 요청 성공했다면 pop
+                    STACK.pop();
 
                     Thread.sleep(1_000);
 
@@ -187,15 +189,15 @@ public class MenuBatchCrawler {
                     if (!backupManager.hasFirstMenuBackup()) {
                         log.error("[M] 예외 발생. IP 차단 시점의 음식점 저장\n", ex);
                         batchExecutor.batchInsert(); // 배치에 쌓여있는 데이터 배치 삽입
+                        backupManager.setAllMenuBackups(STACK); // IP 차단 시점의 스택의 모든 요소들을 저장
                         backupManager.setMenuBackup(backupDto); // IP 차단 시점의 좌표를 저장
-                        backupManager.setAllMenuBackups(stack); // IP 차단 시점의 스택의 모든 요소들을 저장
                         log.info("[M] 백업 완료");
                     }
 
                     // 슬립 후 크롤링 재시도
                     try {
-                        log.info("[M] {} 분 슬립 후 크롤링 재시도", 30 * retry);
-                        Thread.sleep(30 * 600_000 * retry++); // 30분 단위로 슬립
+                        log.info("[M] {} 분 슬립 후 크롤링 재시도", 10 * retry);
+                        Thread.sleep(10 * 60_000 * retry++); // 10분 단위로 슬립
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                     }
