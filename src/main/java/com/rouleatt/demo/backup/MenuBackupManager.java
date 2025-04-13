@@ -1,6 +1,7 @@
 package com.rouleatt.demo.backup;
 
 import com.rouleatt.demo.dto.MenuBackupDto;
+import com.rouleatt.demo.dto.RestaurantBackupDto;
 import com.rouleatt.demo.utils.EnvLoader;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -9,6 +10,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Stack;
 import lombok.extern.slf4j.Slf4j;
@@ -91,7 +93,9 @@ public class MenuBackupManager {
     }
 
     public void setAllMenuBackups(Stack<MenuBackupDto> stack) {
-        for (MenuBackupDto backupDto : stack) {
+        List<MenuBackupDto> reversed = new ArrayList<>(stack);
+        Collections.reverse(reversed); // top → bottom 순서로 뒤집기
+        for (MenuBackupDto backupDto : reversed) {
             setMenuBackup(backupDto);
         }
     }

@@ -9,6 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Stack;
 
@@ -83,7 +84,9 @@ public class RestaurantBackupManager {
     }
 
     public void setAllRestaurantBackups(Stack<RestaurantBackupDto> stack) {
-        for (RestaurantBackupDto backupDto : stack) {
+        List<RestaurantBackupDto> reversed = new ArrayList<>(stack);
+        Collections.reverse(reversed); // top → bottom 순서로 뒤집기
+        for (RestaurantBackupDto backupDto : reversed) {
             setRestaurantBackup(backupDto);
         }
     }
