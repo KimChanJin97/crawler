@@ -92,9 +92,4 @@ public class RestaurantBatchExecutor {
             e.printStackTrace();
         }
     }
-
-    public boolean shouldBatchInsert() {
-        return !RESTAURANT_BATCH.isEmpty() ||
-                !RESTAURANT_IMAGE_BATCH.isEmpty();
-    }
 }

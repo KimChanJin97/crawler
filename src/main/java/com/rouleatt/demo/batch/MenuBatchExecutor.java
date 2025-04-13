@@ -184,12 +184,4 @@ public class MenuBatchExecutor {
             e.printStackTrace();
         }
     }
-
-    public boolean shouldBatchInsert() {
-        return !MENU_BATCH.isEmpty() ||
-                !MENU_IMAGE_BATCH.isEmpty() ||
-                !REVIEW_BATCH.isEmpty() ||
-                !REVIEW_IMAGE_BATCH.isEmpty() ||
-                !BIZ_HOUR_BATCH.isEmpty();
-    }
 }
