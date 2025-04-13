@@ -79,7 +79,7 @@ public class MenuBatchCrawler {
             while (retry < MAX_RETRY) {
 
                 try {
-                    log.info("[M] {} 음식점 {} 번째 크롤링", restaurantId, retry);
+                    log.info("[M] 음식점: {} | 요청 횟수: {}", restaurantId, retry);
 
                     URI uri = setUri(restaurantId);
                     String response = sendHttpRequest(uri, restaurantId);
@@ -177,7 +177,7 @@ public class MenuBatchCrawler {
 
                     // 배치 삽입이 성공했다면 백업 데이터 삭제
                     if (backupManager.hasFirstMenuBackup()) {
-                        log.info("[R] 정상. 백업 데이터 삭제");
+                        log.info("[M] 정상. 백업 데이터 삭제");
                         backupManager.dropAndCreateMenuBackupTable();
                     }
                     // while 탈출
@@ -185,15 +185,14 @@ public class MenuBatchCrawler {
 
                 } catch (Exception ex) {
 
-                    // 배치에 쌓여있는 데이터 배치 삽입
-                    batchExecutor.batchInsert();
-
                     // 백업 데이터가 존재하지 않다면
                     if (!backupManager.hasFirstMenuBackup()) {
-                        log.error("[M] 예외 발생. IP 차단 시점의 음식점 저장\n", ex);
+                        log.error("[M] 예외 발생. IP 차단 시점의 데이터 백업");
                         backupManager.setAllMenuBackups(STACK); // IP 차단 시점의 스택의 모든 요소들을 저장
-                        log.info("[M] 백업 완료");
                     }
+
+                    // 배치에 쌓여있는 데이터 배치 삽입
+                    batchExecutor.batchInsert();
 
                     // 슬립 후 크롤링 재시도
                     try {

@@ -30,6 +30,7 @@ public class RestaurantBatchCrawler {
     private static int BATCH_COUNT = 0;
     private static final int BATCH_SIZE = 50;
     private static final Stack<RestaurantBackupDto> STACK = new Stack<>();
+    private static final Set<String> SET = new HashSet<>();
 
     private final RestaurantBackupManager backupManager;
     private final TableManager tableManager;
@@ -79,7 +80,7 @@ public class RestaurantBatchCrawler {
 
                     Thread.sleep(1_000);
 
-                    log.info("[R] 스택 사이즈 {} | 지역 {} | 좌표 {} {} {} {} | 재시도 횟수 {} ",STACK.size(), shortName, minX, minY, maxX, maxY, retry);
+                    log.info("[R] 지역: {} | 좌표: {} {} {} {} | 요청 횟수: {} ", shortName, minX, minY, maxX, maxY, retry);
 
                     JsonNode rootNode = mapper.readTree(response); // 파싱 (예외 발생 포인트)
                     JsonNode resultNode = rootNode.path("result");
@@ -102,6 +103,12 @@ public class RestaurantBatchCrawler {
 
                                 int restaurantPk = RestaurantIdGenerator.getNextId();
                                 String restaurantId = restaurantNode.path("id").asText();
+
+                                // 좌표가 음식점에 걸쳐져있는 경우 발생할 중복 크롤링 방지
+                                if (SET.contains(restaurantId)) {
+                                    continue;
+                                }
+                                SET.add(restaurantId);
 
                                 // 음식점 크롤링 및 배치
                                 batchExecutor.addRestaurant(
@@ -154,15 +161,14 @@ public class RestaurantBatchCrawler {
 
                 } catch (Exception ex) {
 
-                    // 배치에 쌓여있는 데이터 배치 삽입
-                    batchExecutor.batchInsert();
-
                     // 백업 데이터가 존재하지 않다면 백업
                     if (!backupManager.hasFirstRestaurantBackup()) {
-                        log.error("[R] 예외 발생. IP 차단 시점의 행정구역 이름과 좌표 저장\n", ex);
-                        backupManager.setAllRestaurantBackups(STACK); // IP 차단 시점의 스택의 모든 요소들을 저장
-                        log.info("[R] 백업 완료");
+                        log.error("[R] 예외 발생. IP 차단 시점의 데이터 백업");
+                        backupManager.setAllRestaurantBackups(STACK);
                     }
+
+                    // 배치에 쌓여있는 데이터 배치 삽입
+                    batchExecutor.batchInsert();
 
                     // 슬립 후 크롤링 재시도
                     try {
