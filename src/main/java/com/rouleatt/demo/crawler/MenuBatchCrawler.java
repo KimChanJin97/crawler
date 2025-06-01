@@ -22,6 +22,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Stack;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
@@ -31,6 +36,7 @@ import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 
 @Slf4j
 public class MenuBatchCrawler {
@@ -65,7 +71,7 @@ public class MenuBatchCrawler {
         else {
             log.info("[M] 처음부터 크롤링 시작");
             tableManager.dropAndCreateMenuAndReviewTable();
-            List<MenuBackupDto> backupDtos = backupManager.getAllRestaurantsPkId();
+            List<MenuBackupDto> backupDtos = backupManager.getAllRestaurantsPkIdOrderByIdDesc();
             backupDtos.forEach(backupDto -> STACK.push(backupDto));
         }
 
@@ -79,7 +85,7 @@ public class MenuBatchCrawler {
             while (retry < MAX_RETRY) {
 
                 try {
-                    log.info("[M] 음식점: {} | 요청 횟수: {}", restaurantId, retry);
+                    log.info("[M] 음식점: {} | 요청 횟수: {}", restaurantPk, retry);
 
                     URI uri = setUri(restaurantId);
                     String response = sendHttpRequest(uri, restaurantId);
@@ -87,9 +93,10 @@ public class MenuBatchCrawler {
                     Thread.sleep(1_000);
 
                     Document doc = Jsoup.parse(response, "UTF-8");
-                    String script = doc.select("script").get(2).html(); // 3번째 <script> 태그
+                    String script = doc.select("script").get(4).html(); // 3번째 <script> 태그
+
                     String rootJson = script
-                            .split(MR_LOWER_BOUND)[1] // 윗부분 제거
+                            .split(MR_LOWER_BOUND)[1] // 윗부분 제거 // Index 1 out of bounds for length 1
                             .split(MR_UPPER_BOUND)[0]; // 아랫부분 제거
 
                     JsonNode rootNode = objectMapper.readTree(rootJson);
@@ -163,16 +170,16 @@ public class MenuBatchCrawler {
                                 );
                             }
                         }
+                    }
 
-                        // 배치 사이즈에 도달하지 않았다면 배치 카운트 증가
-                        if (BATCH_COUNT < BATCH_SIZE) {
-                            BATCH_COUNT++;
-                        }
-                        // 배치 사이즈에 도달했다면 배치 삽입. 배치 카운트 초기화
-                        if (BATCH_COUNT >= BATCH_SIZE) {
-                            batchExecutor.batchInsert();
-                            BATCH_COUNT = 0;
-                        }
+                    // 배치 사이즈에 도달하지 않았다면 배치 카운트 증가
+                    if (BATCH_COUNT < BATCH_SIZE) {
+                        BATCH_COUNT++;
+                    }
+                    // 배치 사이즈에 도달했다면 배치 삽입. 배치 카운트 초기화
+                    if (BATCH_COUNT >= BATCH_SIZE) {
+                        batchExecutor.batchInsert();
+                        BATCH_COUNT = 0;
                     }
 
                     // 배치 삽입이 성공했다면 백업 데이터 삭제
@@ -187,7 +194,7 @@ public class MenuBatchCrawler {
 
                     // 백업 데이터가 존재하지 않다면
                     if (!backupManager.hasFirstMenuBackup()) {
-                        log.error("[M] 예외 발생. IP 차단 시점의 데이터 백업");
+                        log.error("[M] 예외 발생. IP 차단 시점의 데이터 백업", ex);
                         backupManager.setAllMenuBackups(STACK); // IP 차단 시점의 스택의 모든 요소들을 저장
                     }
 

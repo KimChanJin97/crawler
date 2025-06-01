@@ -25,7 +25,7 @@ public class MenuBackupManager {
     // 메뉴 백업 데이터 존재 여부 판단을 위한 SQL
     private static final String SELECT_FIRST_MENU_BACKUP_SQL = "SELECT 1 FROM menu_backup WHERE id = 1 LIMIT 1";
     // 메뉴 백업 데이터 존재하지 않을 경우 모든 음식점을 조회하기 위한 SQL (이후 스택 삽입)
-    private static final String SELECT_RESTAURANT_PK_ID_SQL = "SELECT id, rid FROM restaurant";
+    private static final String SELECT_RESTAURANT_PK_ID_SQL = "SELECT id, rid FROM restaurant ORDER BY id DESC";
     // 메뉴 백업 데이터 존재할 경우 백업 데이터를 조회하기 위한 SQL (이후 스택 삽입)
     private static final String SELECT_ALL_MENU_BACKUPS_SQL = "SELECT rpk, rid FROM menu_backup ORDER BY id DESC";
     // 메뉴 백업 데이터를 저장하기 위한 SQL
@@ -35,10 +35,11 @@ public class MenuBackupManager {
     private static final String CREATE_MENU_BACKUP_TABLE_SQL =
             "CREATE TABLE IF NOT EXISTS menu_backup ("
             + "id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
+            + "rpk INT NOT NULL, "
             + "rid INT NOT NULL "
             + ")";
 
-    public List<MenuBackupDto> getAllRestaurantsPkId() {
+    public List<MenuBackupDto> getAllRestaurantsPkIdOrderByIdDesc() {
         List<MenuBackupDto> backupDtos = new ArrayList<>();
         try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
              PreparedStatement pstmt = conn.prepareStatement(SELECT_RESTAURANT_PK_ID_SQL);
@@ -81,23 +82,27 @@ public class MenuBackupManager {
         return restaurantIds;
     }
 
-    private  void setMenuBackup(MenuBackupDto backupDto) {
-        try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
-             PreparedStatement stmt = conn.prepareStatement(INSERT_MENU_BACKUP_SQL)) {
-            stmt.setInt(1, backupDto.restaurantPk());
-            stmt.setString(2, backupDto.restaurantId());
-            stmt.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
     public void setAllMenuBackups(Stack<MenuBackupDto> stack) {
         List<MenuBackupDto> reversed = new ArrayList<>(stack);
         Collections.reverse(reversed); // top → bottom 순서로 뒤집기
-        for (MenuBackupDto backupDto : reversed) {
-            setMenuBackup(backupDto);
+        try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
+             PreparedStatement stmt = conn.prepareStatement(INSERT_MENU_BACKUP_SQL)) {
+
+            conn.setAutoCommit(false);
+
+            for (MenuBackupDto backupDto : reversed) {
+                stmt.setInt(1, backupDto.restaurantPk());
+                stmt.setString(2, backupDto.restaurantId());
+                stmt.addBatch();
+            }
+            // 배치 실행 (커밋X)
+            stmt.executeBatch();
+            // 배치 실행이 끝나면 한번에 커밋
+            conn.commit();
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
+
     }
 
     public void dropAndCreateMenuBackupTable() {

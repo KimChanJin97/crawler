@@ -94,10 +94,8 @@ public class RestaurantBackupManager {
     public void dropAndCreateRestaurantBackupTable() {
         try (Connection conn = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
              Statement stmt = conn.createStatement()) {
-
             stmt.execute(DROP_RESTAURANT_BACKUP_TABLE_SQL);
             stmt.execute(CREATE_RESTAURANT_BACKUP_TABLE_SQL);
-
         } catch (Exception e) {
             e.printStackTrace();
         }

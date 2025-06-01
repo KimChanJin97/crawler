@@ -29,6 +29,7 @@ public class RestaurantBatchCrawler {
     private static int MAX_RETRY = 60;
     private static int BATCH_COUNT = 0;
     private static final int BATCH_SIZE = 50;
+    private static final double MIN_DELTA = 0.00001;
     private static final Stack<RestaurantBackupDto> STACK = new Stack<>();
     private static final Set<String> SET = new HashSet<>();
 
@@ -142,6 +143,11 @@ public class RestaurantBatchCrawler {
                     // 크롤링한 음식점이 100개 이상이라면 영역을 쪼개기 위해 스택 푸시
                     else if (countNode.asInt() >= 100) {
 
+                        if (Math.abs(maxX - minX) < MIN_DELTA || Math.abs(maxY - minY) < MIN_DELTA) {
+                            log.warn("[R] 더 이상 영역을 쪼갤 수 없음: {}, {}, {}, {}", minX, minY, maxX, maxY);
+                            break;
+                        }
+
                         double midX = (minX + maxX) / 2;
                         double midY = (minY + maxY) / 2;
 
@@ -163,7 +169,7 @@ public class RestaurantBatchCrawler {
 
                     // 백업 데이터가 존재하지 않다면 백업
                     if (!backupManager.hasFirstRestaurantBackup()) {
-                        log.error("[R] 예외 발생. IP 차단 시점의 데이터 백업");
+                        log.error("[R] 예외 발생. IP 차단 시점의 데이터 백업", ex);
                         backupManager.setAllRestaurantBackups(STACK);
                     }
 
